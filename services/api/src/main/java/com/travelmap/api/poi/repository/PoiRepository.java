@@ -20,6 +20,8 @@ public interface PoiRepository extends JpaRepository<PoiEntity, UUID> {
     Optional<PoiEntity> findByIdForUpdate(@Param("id") UUID id);
     @EntityGraph(attributePaths = {"category", "openingHours"})
     Optional<PoiEntity> findByIdAndStatus(UUID id, PoiStatus status);
+    @EntityGraph(attributePaths = {"category", "openingHours"})
+    Optional<PoiEntity> findByExternalProviderAndExternalId(String externalProvider, String externalId);
 
     @EntityGraph(attributePaths = {"category", "openingHours"})
     List<PoiEntity> findAllByStatus(PoiStatus status);

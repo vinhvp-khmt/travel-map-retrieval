@@ -18,6 +18,8 @@ public class BookingController {
     public BookingController(BookingService bookings, PaymentService payments) { this.bookings=bookings; this.payments=payments; }
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     BookingResponse create(Authentication auth, @Valid @RequestBody CreateBookingRequest request) { return bookings.create(auth.getName(), request); }
+    @PostMapping("/external") @ResponseStatus(HttpStatus.CREATED)
+    BookingResponse createExternal(Authentication auth, @Valid @RequestBody CreateExternalBookingRequest request) { return bookings.createExternal(auth.getName(), request); }
     @GetMapping("/{id}") BookingResponse get(Authentication auth, @PathVariable UUID id) { return bookings.get(auth.getName(), id); }
     @PatchMapping("/{id}/cancel") BookingResponse cancel(Authentication auth, @PathVariable UUID id) { return bookings.cancel(auth.getName(), id); }
     @PostMapping("/{id}/payment-sessions") @ResponseStatus(HttpStatus.CREATED)

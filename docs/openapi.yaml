@@ -229,6 +229,18 @@ paths:
         '201': { description: Booking hold created, content: { application/json: { schema: { $ref: '#/components/schemas/BookingResponse' } } } }
         '400': { $ref: '#/components/responses/ValidationError' }
         '409': { description: Capacity unavailable or POI is not bookable }
+  /api/v1/bookings/external:
+    post:
+      tags: [Booking]
+      summary: Import a Geoapify POI when needed, then create a booking hold
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateExternalBookingRequest' } } }
+      responses:
+        '201': { description: External POI imported/reused and booking hold created, content: { application/json: { schema: { $ref: '#/components/schemas/BookingResponse' } } } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { description: Capacity unavailable or imported POI is not bookable }
   /api/v1/bookings/{bookingId}:
     get:
       tags: [Booking]
@@ -268,6 +280,17 @@ paths:
       responses:
         '204': { description: Event accepted or previously processed }
         '401': { description: Invalid HMAC signature }
+  /api/v1/payments/{paymentId}/mock-confirm:
+    post:
+      tags: [Payment]
+      summary: Confirm a mock payment for demo/manual testing
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: paymentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Payment marked PAID and booking confirmed, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentSessionResponse' } } } }
+        '404': { description: Payment not found in caller scope }
+        '409': { description: Booking hold expired or booking state invalid }
   /api/v1/bookings/{bookingId}/reviews:
     post:
       tags: [Review]
@@ -447,6 +470,19 @@ components:
       required: [poiId, visitAt, partySize]
       properties:
         poiId: { type: string, format: uuid }
+        visitAt: { type: string, format: date-time }
+        partySize: { type: integer, minimum: 1, maximum: 1000 }
+        notes: { type: string, maxLength: 1000 }
+    CreateExternalBookingRequest:
+      type: object
+      required: [externalId, name, category, address, latitude, longitude, visitAt, partySize]
+      properties:
+        externalId: { type: string, maxLength: 160, description: Stable external Geoapify identifier from the client result }
+        name: { type: string, maxLength: 120 }
+        category: { type: string, maxLength: 120 }
+        address: { type: string, maxLength: 500 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
         visitAt: { type: string, format: date-time }
         partySize: { type: integer, minimum: 1, maximum: 1000 }
         notes: { type: string, maxLength: 1000 }

@@ -37,6 +37,8 @@ public class PoiEntity {
     @Column(name = "price_level") private Integer priceLevel;
     private Integer capacity;
     @Column(name = "booking_enabled", nullable = false) private boolean bookingEnabled;
+    @Column(name = "external_provider", length = 40) private String externalProvider;
+    @Column(name = "external_id", length = 160) private String externalId;
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 30) private PoiStatus status;
     @Column(name = "avg_rating", nullable = false, precision = 3, scale = 2) private BigDecimal avgRating;
@@ -87,6 +89,11 @@ public class PoiEntity {
     public void markPendingApproval() { status = PoiStatus.PENDING_APPROVAL; updatedAt = Instant.now(); }
     public void approve() { status = PoiStatus.ACTIVE; updatedAt = Instant.now(); }
     public void reject() { status = PoiStatus.REJECTED; updatedAt = Instant.now(); }
+    public void attachExternalReference(String provider, String externalId) {
+        this.externalProvider = provider;
+        this.externalId = externalId;
+        this.updatedAt = Instant.now();
+    }
 
     public UUID getId() { return id; }
     public UserEntity getOwner() { return owner; }
@@ -101,6 +108,8 @@ public class PoiEntity {
     public Integer getCapacity() { return capacity; }
     public boolean isBookingEnabled() { return bookingEnabled; }
     public PoiStatus getStatus() { return status; }
+    public String getExternalProvider() { return externalProvider; }
+    public String getExternalId() { return externalId; }
     public BigDecimal getAvgRating() { return avgRating; }
     public int getRatingCount() { return ratingCount; }
     public List<PoiOpeningHourEntity> getOpeningHours() { return List.copyOf(openingHours); }

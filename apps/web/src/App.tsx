@@ -134,7 +134,7 @@ function App() {
         <div className="map-panel">
           <MapView results={visibleResults} selectedId={selected?.poiId} userLocation={userLocation} onSelect={selectPoi} />
           <div className="map-caption">Dữ liệu bản đồ © OpenStreetMap / Geoapify</div>
-          {selected && <PoiDetail poi={selected} onClose={() => setSelected(undefined)} />}
+          {selected && <PoiDetail poi={selected} token={session.accessToken} onClose={() => setSelected(undefined)} />}
         </div>
       </section>
       {showAuth && <AuthModal onClose={() => setShowAuth(false)} onAuthenticated={authenticated} />}
