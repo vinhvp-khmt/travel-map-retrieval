@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: travelmap-api
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:55432/travelmap}
+    username: ${DATABASE_USERNAME:travelmap}
+    password: ${DATABASE_PASSWORD:travelmap_local}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+  flyway:
+    enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+travelmap:
+  cors:
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*,https://*.onrender.com}
+  security:
+    jwt-secret: ${JWT_SECRET:local-development-secret-change-before-production-123456}
+    access-token-minutes: 30
+    refresh-token-days: 7
+  poi:
+    service-area:
+      min-latitude: ${POI_MIN_LATITUDE:10.70}
+      max-latitude: ${POI_MAX_LATITUDE:10.90}
+      min-longitude: ${POI_MIN_LONGITUDE:106.55}
+      max-longitude: ${POI_MAX_LONGITUDE:106.85}
+  payment:
+    webhook-secret: ${PAYMENT_WEBHOOK_SECRET:local-mock-webhook-secret-change-before-production}
+  booking:
+    expiry-scan-ms: ${BOOKING_EXPIRY_SCAN_MS:60000}
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  jpa:
+    open-in-view: false
+server:
+  forward-headers-strategy: framework

@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: travelmap-api
+    runtime: docker
+    dockerfilePath: ./services/api/Dockerfile
+    dockerContext: ./services/api
+    healthCheckPath: /api/v1/health
+    envVars:
+      - { key: SPRING_PROFILES_ACTIVE, value: prod }
+      - { key: DATABASE_URL, sync: false }
+      - { key: DATABASE_USERNAME, sync: false }
+      - { key: DATABASE_PASSWORD, sync: false }
+      - { key: JWT_SECRET, generateValue: true }
+      - { key: PAYMENT_WEBHOOK_SECRET, generateValue: true }
+      - { key: CORS_ALLOWED_ORIGIN_PATTERNS, sync: false }
+  - type: web
+    name: travelmap-web
+    runtime: docker
+    dockerfilePath: ./apps/web/Dockerfile
+    dockerContext: ./apps/web
+    healthCheckPath: /health
+    envVars:
+      - { key: VITE_API_BASE_URL, sync: false }
+      - { key: VITE_MAP_TILE_URL, sync: false }
+      - { key: VITE_MAP_TILE_ATTRIBUTION, value: "&copy; OpenStreetMap contributors &copy; Geoapify" }
+      - { key: VITE_GEOAPIFY_API_KEY, sync: false }

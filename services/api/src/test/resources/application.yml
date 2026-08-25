@@ -1,0 +1,22 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:travelmap;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+  flyway:
+    enabled: false
+
+travelmap:
+  cors:
+    allowed-origin-patterns: http://localhost:*
+  security:
+    jwt-secret: test-secret-with-at-least-thirty-two-characters
+    access-token-minutes: 30
+    refresh-token-days: 7
+  payment:
+    webhook-secret: test-payment-webhook-secret
+  booking:
+    expiry-scan-ms: 3600000

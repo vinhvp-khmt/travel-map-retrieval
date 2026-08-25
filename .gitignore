@@ -1,0 +1,14 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+.travelmap/logs/
+.travelmap/pipeline.lock/
+node_modules/
+dist/
+target/
+build/
+.idea/
+.vscode/
+*.iml
+*.log

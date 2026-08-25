@@ -1,0 +1,549 @@
+openapi: 3.0.3
+info:
+  title: TravelMap API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/health:
+    get:
+      tags: [Operations]
+      summary: Verify API and database health
+      responses:
+        '200':
+          description: API and database are available
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [UP] }
+                  timestamp: { type: string, format: date-time }
+  /api/v1/auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register a user account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Account created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { $ref: '#/components/responses/ConflictError' }
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login and issue an access/refresh token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authenticated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+        '423':
+          description: Account temporarily locked
+  /api/v1/auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Rotate a refresh token and issue a new token pair
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token pair rotated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Revoke a refresh token
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '204':
+          description: Refresh token revoked
+        '401': { $ref: '#/components/responses/UnauthorizedError' }
+  /api/v1/pois/{poiId}:
+    get:
+      tags: [POI]
+      summary: Get an active POI
+      parameters:
+        - name: poiId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Active POI detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PoiResponse' }
+        '404':
+          description: POI does not exist or is not active
+  /api/v1/owner/pois:
+    get:
+      tags: [POI]
+      summary: List POIs owned by the authenticated Owner
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Owner POIs
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/PoiResponse' }
+    post:
+      tags: [POI]
+      summary: Create a POI in pending-approval state
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PoiUpsertRequest' }
+      responses:
+        '201':
+          description: POI created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PoiResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409':
+          description: Same normalized name exists within 50 metres
+  /api/v1/owner/pois/{poiId}:
+    put:
+      tags: [POI]
+      summary: Update an owned POI and return it to pending approval
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: poiId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PoiUpsertRequest' }
+      responses:
+        '200':
+          description: POI updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PoiResponse' }
+        '404':
+          description: POI is not owned by the current Owner
+  /api/v1/admin/pois/{poiId}/approval:
+    patch:
+      tags: [POI]
+      summary: Approve or reject a pending POI
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: poiId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PoiApprovalRequest' }
+      responses:
+        '200':
+          description: Approval decision recorded in the audit trail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PoiResponse' }
+        '409':
+          description: POI is not pending approval
+  /api/v1/search:
+    get:
+      tags: [Search]
+      summary: Search active POIs by text, location and visit time
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
+        - { name: latitude, in: query, required: true, schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: longitude, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 } }
+        - { name: radiusKm, in: query, schema: { type: number, default: 2, minimum: 0.1, maximum: 10 } }
+        - { name: visitAt, in: query, description: ISO-8601 timestamp with timezone; defaults to now, schema: { type: string, format: date-time } }
+        - { name: page, in: query, schema: { type: integer, default: 0, minimum: 0 } }
+        - { name: size, in: query, schema: { type: integer, default: 20, minimum: 1, maximum: 50 } }
+        - { name: priceLevel, in: query, schema: { type: integer, minimum: 1, maximum: 4 } }
+        - { name: categoryId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Ranked, paginated POIs with explainable score details
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SearchResponse' }
+        '400': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/pois/{poiId}/availability:
+    get:
+      tags: [Booking]
+      summary: Check remaining capacity in a 60-minute slot
+      parameters:
+        - { name: poiId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: visitAt, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        '200': { description: Capacity snapshot, content: { application/json: { schema: { $ref: '#/components/schemas/AvailabilityResponse' } } } }
+        '409': { description: POI does not accept bookings }
+  /api/v1/bookings:
+    post:
+      tags: [Booking]
+      summary: Create a booking and hold capacity for 10 minutes
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CreateBookingRequest' } } }
+      responses:
+        '201': { description: Booking hold created, content: { application/json: { schema: { $ref: '#/components/schemas/BookingResponse' } } } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { description: Capacity unavailable or POI is not bookable }
+  /api/v1/bookings/{bookingId}:
+    get:
+      tags: [Booking]
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: bookingId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Owned booking, content: { application/json: { schema: { $ref: '#/components/schemas/BookingResponse' } } } }
+        '404': { description: Booking not found in caller scope }
+  /api/v1/bookings/{bookingId}/payment-sessions:
+    post:
+      tags: [Payment]
+      summary: Create or return the idempotent mock payment session
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: bookingId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: Idempotency-Key, in: header, required: true, schema: { type: string, minLength: 8, maxLength: 120 } }
+      responses:
+        '201': { description: Payment session, content: { application/json: { schema: { $ref: '#/components/schemas/PaymentSessionResponse' } } } }
+  /api/v1/bookings/{bookingId}/cancel:
+    patch:
+      tags: [Booking]
+      summary: Cancel a pending/confirmed booking; refund paid deposit when at least two hours early
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: bookingId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Cancelled booking, content: { application/json: { schema: { $ref: '#/components/schemas/BookingResponse' } } } }
+  /api/v1/payments/webhooks/{gateway}:
+    post:
+      tags: [Payment]
+      summary: Process an HMAC-verified idempotent payment event
+      parameters:
+        - { name: gateway, in: path, required: true, schema: { type: string, example: mock } }
+        - { name: X-TravelMap-Signature, in: header, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/PaymentWebhookRequest' } } }
+      responses:
+        '204': { description: Event accepted or previously processed }
+        '401': { description: Invalid HMAC signature }
+  /api/v1/bookings/{bookingId}/reviews:
+    post:
+      tags: [Review]
+      summary: Review a completed booking; one review per booking
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: bookingId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReviewRequest' } } }
+      responses:
+        '201': { description: Review published with a 24-hour edit window, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewResponse' } } } }
+        '400': { $ref: '#/components/responses/ValidationError' }
+        '409': { description: Booking is incomplete or already reviewed }
+  /api/v1/reviews/{reviewId}:
+    patch:
+      tags: [Review]
+      summary: Edit an owned review within 24 hours
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: reviewId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/ReviewRequest' } } }
+      responses:
+        '200': { description: Review updated, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewResponse' } } } }
+        '409': { description: Edit window expired or review is no longer published }
+    delete:
+      tags: [Review]
+      summary: Soft-delete an owned review within 24 hours
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: reviewId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '204': { description: Review deleted and POI rating refreshed }
+        '409': { description: Delete window expired or review is no longer published }
+  /api/v1/admin/reviews/{reviewId}/hide:
+    patch:
+      tags: [Review]
+      summary: Hide a published review from rating aggregates
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: reviewId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '200': { description: Review hidden, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewResponse' } } } }
+  /api/v1/owner/reports/overview:
+    get:
+      tags: [Reporting]
+      summary: Overview metrics scoped to the authenticated Owner's POIs
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Owner report, content: { application/json: { schema: { $ref: '#/components/schemas/ReportOverview' } } } }
+  /api/v1/admin/reports/overview:
+    get:
+      tags: [Reporting]
+      summary: System-wide overview metrics
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Admin report, content: { application/json: { schema: { $ref: '#/components/schemas/ReportOverview' } } } }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RegisterRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 320 }
+        password:
+          type: string
+          minLength: 8
+          maxLength: 72
+          description: Must contain at least one letter and one digit.
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, maxLength: 72 }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string, maxLength: 512 }
+    UserResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        role: { type: string, enum: [USER, OWNER, ADMIN] }
+    AuthResponse:
+      type: object
+      properties:
+        tokenType: { type: string, example: Bearer }
+        accessToken: { type: string }
+        accessExpiresInSeconds: { type: integer, example: 1800 }
+        refreshToken: { type: string }
+        refreshExpiresInSeconds: { type: integer, example: 604800 }
+    OpeningHour:
+      type: object
+      required: [dayOfWeek, closed]
+      properties:
+        dayOfWeek: { type: integer, minimum: 1, maximum: 7 }
+        openTime: { type: string, format: time, nullable: true }
+        closeTime: { type: string, format: time, nullable: true }
+        closed: { type: boolean }
+        spansNextDay: { type: boolean, readOnly: true }
+    PoiUpsertRequest:
+      type: object
+      required: [categoryId, name, latitude, longitude, address, bookingEnabled, openingHours]
+      properties:
+        categoryId: { type: string, format: uuid }
+        name: { type: string, minLength: 3, maxLength: 120 }
+        description: { type: string, maxLength: 3000 }
+        latitude: { type: number, minimum: -90, maximum: 90 }
+        longitude: { type: number, minimum: -180, maximum: 180 }
+        address: { type: string, maxLength: 500 }
+        priceLevel: { type: integer, minimum: 1, maximum: 4 }
+        capacity: { type: integer, minimum: 1 }
+        bookingEnabled: { type: boolean }
+        openingHours:
+          type: array
+          minItems: 1
+          items: { $ref: '#/components/schemas/OpeningHour' }
+    PoiApprovalRequest:
+      type: object
+      required: [decision]
+      properties:
+        decision: { type: string, enum: [APPROVED, REJECTED] }
+        reason:
+          type: string
+          maxLength: 1000
+          description: Required when decision is REJECTED.
+    PoiResponse:
+      allOf:
+        - $ref: '#/components/schemas/PoiUpsertRequest'
+        - type: object
+          properties:
+            id: { type: string, format: uuid }
+            ownerId: { type: string, format: uuid }
+            categoryName: { type: string }
+            status: { type: string, enum: [PENDING_APPROVAL, ACTIVE, REJECTED, INACTIVE] }
+            averageRating: { type: number }
+            ratingCount: { type: integer }
+    ScoreDetail:
+      type: object
+      properties:
+        bm25: { type: number, minimum: 0, maximum: 1 }
+        spatial: { type: number, minimum: 0, maximum: 1 }
+        temporal: { type: number, minimum: 0, maximum: 1 }
+        rating: { type: number, minimum: 0, maximum: 1 }
+        finalScore: { type: number, minimum: 0, maximum: 1 }
+    SearchResult:
+      type: object
+      properties:
+        poiId: { type: string, format: uuid }
+        name: { type: string }
+        category: { type: string }
+        address: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        distanceMeters: { type: number }
+        open: { type: boolean }
+        scoreDetail: { $ref: '#/components/schemas/ScoreDetail' }
+    SearchResponse:
+      type: object
+      properties:
+        normalizedQuery: { type: string }
+        page: { type: integer }
+        size: { type: integer }
+        total: { type: integer }
+        results:
+          type: array
+          items: { $ref: '#/components/schemas/SearchResult' }
+        suggestion: { type: string, nullable: true }
+    CreateBookingRequest:
+      type: object
+      required: [poiId, visitAt, partySize]
+      properties:
+        poiId: { type: string, format: uuid }
+        visitAt: { type: string, format: date-time }
+        partySize: { type: integer, minimum: 1, maximum: 1000 }
+        notes: { type: string, maxLength: 1000 }
+    BookingResponse:
+      type: object
+      properties:
+        bookingId: { type: string, format: uuid }
+        poiId: { type: string, format: uuid }
+        poiName: { type: string }
+        visitAt: { type: string, format: date-time }
+        slotEndAt: { type: string, format: date-time }
+        partySize: { type: integer }
+        status: { type: string, enum: [PENDING, CONFIRMED, COMPLETED, CANCELLED, EXPIRED] }
+        holdExpiresAt: { type: string, format: date-time, nullable: true }
+        depositAmount: { type: number, format: decimal }
+        currency: { type: string, example: VND }
+        paymentRequired: { type: boolean }
+    AvailabilityResponse:
+      type: object
+      properties:
+        poiId: { type: string, format: uuid }
+        visitAt: { type: string, format: date-time }
+        slotEndAt: { type: string, format: date-time }
+        capacity: { type: integer }
+        reserved: { type: integer }
+        available: { type: integer }
+    PaymentSessionResponse:
+      type: object
+      properties:
+        paymentId: { type: string, format: uuid }
+        bookingId: { type: string, format: uuid }
+        gateway: { type: string, example: MOCK }
+        status: { type: string, enum: [CREATED, PAID, FAILED, REFUNDED] }
+        amount: { type: number, format: decimal }
+        currency: { type: string, example: VND }
+        paymentUrl: { type: string, format: uri }
+    PaymentWebhookRequest:
+      type: object
+      required: [eventId, paymentId, status]
+      properties:
+        eventId: { type: string, maxLength: 120 }
+        paymentId: { type: string, format: uuid }
+        status: { type: string, enum: [PAID, FAILED] }
+    ReviewRequest:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, maxLength: 2000 }
+        imageUrls:
+          type: array
+          maxItems: 5
+          items: { type: string, format: uri, pattern: '^https?://' }
+    ReviewResponse:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        bookingId: { type: string, format: uuid }
+        poiId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, nullable: true }
+        status: { type: string, enum: [PUBLISHED, HIDDEN, DELETED] }
+        imageUrls: { type: array, items: { type: string, format: uri } }
+        editableUntil: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+    ReportOverview:
+      type: object
+      properties:
+        poiCount: { type: integer, format: int64 }
+        bookingCount: { type: integer, format: int64 }
+        completedBookingCount: { type: integer, format: int64 }
+        conversionRatePercent: { type: number, format: decimal }
+        paidRevenue: { type: number, format: decimal, description: Paid VND deposits excluding refunded payments }
+        reviewCount: { type: integer, format: int64 }
+        averageRating: { type: number, format: decimal }
+    ApiError:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+        fields:
+          type: object
+          additionalProperties: { type: string }
+        timestamp: { type: string, format: date-time }
+  responses:
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    UnauthorizedError:
+      description: Authentication failed
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    ConflictError:
+      description: Resource already exists
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ApiError' }

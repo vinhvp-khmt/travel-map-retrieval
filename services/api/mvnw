@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$SCRIPT_DIR" || exit 1
+
+if command -v mvn >/dev/null 2>&1; then
+  exec mvn "$@"
+fi
+
+for maven_candidate in $(find "$HOME/.m2/wrapper/dists" -path '*/bin/mvn' -type f 2>/dev/null | sort -r); do
+  if [ -x "$maven_candidate" ]; then
+    exec "$maven_candidate" "$@"
+  fi
+done
+
+printf 'Maven is not installed and no local Maven Wrapper distribution was found.\n' >&2
+printf 'Run ../../run_pipeline.sh doctor before choosing whether to download it.\n' >&2
+exit 1
