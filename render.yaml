@@ -3,7 +3,7 @@ services:
     name: travelmap-api
     runtime: docker
     dockerfilePath: ./services/api/Dockerfile
-    dockerContext: ./services/api
+    dockerContext: .
     healthCheckPath: /api/v1/health
     envVars:
       - { key: SPRING_PROFILES_ACTIVE, value: prod }
@@ -17,7 +17,7 @@ services:
     name: travelmap-web
     runtime: docker
     dockerfilePath: ./apps/web/Dockerfile
-    dockerContext: ./apps/web
+    dockerContext: .
     healthCheckPath: /health
     envVars:
       - { key: VITE_API_BASE_URL, sync: false }
