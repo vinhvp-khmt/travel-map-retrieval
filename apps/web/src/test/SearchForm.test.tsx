@@ -11,7 +11,7 @@ describe('SearchForm', () => {
   it('blocks an empty query and shows a field error', () => {
     const search = vi.fn()
     render(<SearchForm loading={false} onSearch={search} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Khám phá' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Tìm quán' }))
     expect(screen.getByText(/Nhập từ khóa/)).toBeInTheDocument()
     expect(search).not.toHaveBeenCalled()
   })
@@ -19,20 +19,10 @@ describe('SearchForm', () => {
   it('requires a real location before searching', () => {
     const search = vi.fn()
     render(<SearchForm loading={false} onSearch={search} />)
-    fireEvent.change(screen.getByLabelText('Bạn muốn đi đâu?'), { target: { value: 'cà phê' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Khám phá' }))
-    expect(screen.getByText(/Hãy cấp quyền GPS hoặc nhập vĩ độ hợp lệ/)).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Bạn muốn quán coffee kiểu nào?'), { target: { value: 'cà phê' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Tìm quán' }))
+    expect(screen.getByText(/Hãy bấm “Dùng vị trí của tôi” trước khi tìm/)).toBeInTheDocument()
     expect(search).not.toHaveBeenCalled()
-  })
-
-  it('emits normalized form input when coordinates are valid', () => {
-    const search = vi.fn()
-    render(<SearchForm loading={false} onSearch={search} />)
-    fireEvent.change(screen.getByLabelText('Bạn muốn đi đâu?'), { target: { value: 'cà phê' } })
-    fireEvent.change(screen.getByLabelText('Vĩ độ'), { target: { value: '21.0278' } })
-    fireEvent.change(screen.getByLabelText('Kinh độ'), { target: { value: '105.8342' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Khám phá' }))
-    expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: 'cà phê', latitude: 21.0278, longitude: 105.8342, radiusKm: 2 }))
   })
 
   it('uses browser GPS coordinates and searches around the current position', async () => {
@@ -47,10 +37,10 @@ describe('SearchForm', () => {
       },
     })
     render(<SearchForm loading={false} onSearch={search} onLocationChange={onLocationChange} />)
-    fireEvent.change(screen.getByLabelText('Bạn muốn đi đâu?'), { target: { value: 'bảo tàng' } })
+    fireEvent.change(screen.getByLabelText('Bạn muốn quán coffee kiểu nào?'), { target: { value: 'coffee làm việc' } })
     fireEvent.click(screen.getByRole('button', { name: 'Dùng vị trí của tôi' }))
     await waitFor(() => expect(search).toHaveBeenCalledWith(expect.objectContaining({
-      query: 'bảo tàng',
+      query: 'coffee làm việc',
       latitude: 10.78123,
       longitude: 106.70456,
     })))

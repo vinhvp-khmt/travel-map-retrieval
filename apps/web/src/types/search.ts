@@ -28,12 +28,24 @@ export type SearchResponse = {
   suggestion: string | null
 }
 
+export type CoffeeSpace = 'indoor' | 'outdoor' | 'garden' | 'rooftop'
+export type CoffeePurpose = 'work' | 'study' | 'date' | 'checkin'
+
+export type CoffeeFilters = {
+  priceMin: number
+  priceMax: number
+  priceLimit: number
+  spaces: CoffeeSpace[]
+  purposes: CoffeePurpose[]
+}
+
 export type SearchInput = {
   query: string
   latitude: number
   longitude: number
   radiusKm: number
   visitAt?: string
+  filters?: CoffeeFilters
 }
 
 export type UserLocation = {

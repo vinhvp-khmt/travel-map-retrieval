@@ -56,10 +56,10 @@ describe('Geoapify geocoding', () => {
       json: async () => ({
         features: [{
           properties: {
-            place_id: 'supermarket-1',
-            name: 'Local Supermarket',
-            formatted: '1 Market Street',
-            categories: ['commercial.supermarket'],
+            place_id: 'cafe-1',
+            name: 'Garden Coffee',
+            formatted: '1 Coffee Street',
+            categories: ['catering.cafe'],
             distance: 240,
           },
           geometry: { coordinates: [106.701, 10.777] },
@@ -67,13 +67,13 @@ describe('Geoapify geocoding', () => {
       }),
     })
     vi.stubGlobal('fetch', fetch)
-    const results = await placesByCategory({ query: 'supermarket', latitude: 10.7769, longitude: 106.7009, radiusKm: 2 })
+    const results = await placesByCategory({ query: 'coffee sân vườn', latitude: 10.7769, longitude: 106.7009, radiusKm: 2 })
     expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/v2/places?'), expect.any(Object))
-    expect(fetch.mock.calls[0][0]).toContain('categories=commercial.supermarket')
+    expect(fetch.mock.calls[0][0]).toContain('categories=catering.cafe')
     expect(fetch.mock.calls[0][0]).toContain('filter=circle%3A106.7009%2C10.7769%2C2000')
     expect(results[0]).toMatchObject({
-      name: 'Local Supermarket',
-      category: 'commercial supermarket',
+      name: 'Garden Coffee',
+      category: 'catering cafe',
       source: 'geoapify',
     })
   })

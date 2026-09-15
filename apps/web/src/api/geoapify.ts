@@ -24,17 +24,18 @@ type GeoapifyResponse = {
   features?: GeoapifyFeature[]
 }
 
+const COFFEE_CATEGORIES = ['catering.cafe']
+
 const CATEGORY_KEYWORDS: Array<{ matches: string[]; categories: string[] }> = [
-  { matches: ['cafe', 'coffee', 'ca phe', 'cà phê'], categories: ['catering.cafe'] },
-  { matches: ['restaurant', 'food', 'eat', 'nhà hàng', 'nha hang', 'ăn uống', 'an uong'], categories: ['catering.restaurant'] },
-  { matches: ['hotel', 'khách sạn', 'khach san'], categories: ['accommodation.hotel'] },
-  { matches: ['supermarket', 'siêu thị', 'sieu thi', 'grocery'], categories: ['commercial.supermarket'] },
-  { matches: ['museum', 'bảo tàng', 'bao tang'], categories: ['entertainment.museum'] },
-  { matches: ['attraction', 'landmark', 'tourism', 'tham quan', 'điểm du lịch', 'diem du lich'], categories: ['tourism.sights', 'tourism.attraction'] },
-  { matches: ['park', 'công viên', 'cong vien'], categories: ['leisure.park'] },
-  { matches: ['bar', 'pub'], categories: ['catering.bar', 'catering.pub'] },
-  { matches: ['pharmacy', 'drugstore', 'nhà thuốc', 'nha thuoc'], categories: ['healthcare.pharmacy'] },
-  { matches: ['atm', 'bank', 'ngân hàng', 'ngan hang'], categories: ['service.financial.atm', 'service.financial.bank'] },
+  {
+    matches: [
+      'cafe', 'coffee', 'ca phe', 'cà phê', 'espresso', 'latte', 'cold brew',
+      'bánh', 'banh', 'bakery', 'cake', 'croissant', 'sân vườn', 'san vuon',
+      'garden', 'thú cưng', 'thu cung', 'pet', 'làm việc', 'lam viec',
+      'work', 'wifi', 'rooftop', 'view', 'yên tĩnh', 'yen tinh',
+    ],
+    categories: COFFEE_CATEGORIES,
+  },
 ]
 
 function normalizeText(value: string) {
@@ -46,7 +47,7 @@ function normalizeText(value: string) {
 function categoriesForQuery(query: string) {
   const normalized = normalizeText(query)
   const matched = CATEGORY_KEYWORDS.find((entry) => entry.matches.some((keyword) => normalized.includes(normalizeText(keyword))))
-  return matched?.categories
+  return matched?.categories ?? COFFEE_CATEGORIES
 }
 
 function distanceMeters(from: Pick<SearchInput, 'latitude' | 'longitude'>, to: { latitude: number; longitude: number }) {
@@ -65,6 +66,27 @@ function categoryLabel(feature: GeoapifyFeature) {
   if (!type) return 'Geoapify'
   return type.replaceAll('_', ' ')
     .replaceAll('.', ' ')
+}
+
+function queryWithFilters(input: SearchInput) {
+  const spaceText: Record<string, string> = {
+    indoor: 'indoor',
+    outdoor: 'outdoor',
+    garden: 'garden sân vườn',
+    rooftop: 'rooftop',
+  }
+  const purposeText: Record<string, string> = {
+    work: 'quiet wifi work làm việc',
+    study: 'quiet study học tập',
+    date: 'cozy date hẹn hò',
+    checkin: 'beautiful checkin view',
+  }
+  const filters = input.filters
+  const additions = [
+    ...(filters?.spaces ?? []).map((item) => spaceText[item]),
+    ...(filters?.purposes ?? []).map((item) => purposeText[item]),
+  ].filter(Boolean)
+  return ['coffee cafe', input.query.trim(), ...additions].filter(Boolean).join(' ')
 }
 
 function toSearchResult(feature: GeoapifyFeature, input: SearchInput): SearchResult | undefined {
@@ -94,7 +116,7 @@ export async function geocodePlaces(input: SearchInput, signal?: AbortSignal): P
   if (!GEOAPIFY_API_KEY || !input.query.trim()) return []
   const radiusMeters = Math.round(input.radiusKm * 1000)
   const params = new URLSearchParams({
-    text: input.query.trim(),
+    text: queryWithFilters(input),
     lat: String(input.latitude),
     lon: String(input.longitude),
     bias: `proximity:${input.longitude},${input.latitude}`,
