@@ -2,6 +2,7 @@ package com.travelmap.api.search.controller;
 
 import com.travelmap.api.search.dto.SearchResponse;
 import com.travelmap.api.search.model.SearchCriteria;
+import com.travelmap.api.search.model.WeightProfile;
 import com.travelmap.api.search.service.SearchService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,8 +32,9 @@ public class SearchController {
                                  @RequestParam(defaultValue = "0") int page,
                                  @RequestParam(defaultValue = "20") int size,
                                  @RequestParam(required = false) Integer priceLevel,
-                                 @RequestParam(required = false) UUID categoryId) {
+                                 @RequestParam(required = false) UUID categoryId,
+                                 @RequestParam(defaultValue = "v1") String profile) {
         return searchService.search(new SearchCriteria(query, latitude, longitude, radiusKm,
-                visitAt, page, size, priceLevel, categoryId));
+                visitAt, page, size, priceLevel, categoryId, WeightProfile.from(profile)));
     }
 }

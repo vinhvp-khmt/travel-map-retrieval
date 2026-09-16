@@ -10,6 +10,7 @@ import com.travelmap.api.search.dto.ScoreDetail;
 import com.travelmap.api.search.dto.SearchResponse;
 import com.travelmap.api.search.dto.SearchResult;
 import com.travelmap.api.search.model.SearchCriteria;
+import com.travelmap.api.search.model.WeightProfile;
 import com.travelmap.api.search.repository.SearchLogRepository;
 import com.travelmap.api.search.validation.SearchRequestValidator;
 import org.springframework.http.HttpStatus;
@@ -25,6 +26,9 @@ import java.util.UUID;
 @Service
 public class SearchService {
     private static final int CANDIDATE_LIMIT = 500;
+    /** Prior mặc định khi chưa có dữ liệu đánh giá nào để tính trung bình hệ thống. */
+    private static final double DEFAULT_GLOBAL_MEAN_RATING = 3.7;
+
     private final PoiRepository poiRepository;
     private final CategoryRepository categoryRepository;
     private final SearchLogRepository searchLogRepository;
@@ -60,6 +64,14 @@ public class SearchService {
         InvertedIndex index = buildIndex(activePois);
         BM25Scorer bm25Scorer = new BM25Scorer();
 
+        // Prior cho công thức rating shrinkage (V2): điểm sao trung bình toàn hệ thống,
+        // chỉ tính trên các quán đã có ít nhất một lượt đánh giá.
+        double globalMeanRating = activePois.stream()
+                .filter(poi -> poi.getRatingCount() > 0)
+                .mapToDouble(poi -> poi.getAvgRating().doubleValue())
+                .average()
+                .orElse(DEFAULT_GLOBAL_MEAN_RATING);
+
         List<SpatialCandidateProjection> spatial = poiRepository.findSpatialCandidates(
                 criteria.latitude(), criteria.longitude(), criteria.radiusKm() * 1000,
                 criteria.categoryId(), criteria.priceLevel(), CANDIDATE_LIMIT);
@@ -74,12 +86,14 @@ public class SearchService {
         double maxBm25 = rawScores.values().stream().mapToDouble(Double::doubleValue).max().orElse(0);
         OffsetDateTime visitAt = criteria.visitAt() == null ? OffsetDateTime.now() : criteria.visitAt();
         double radiusMeters = criteria.radiusKm() * 1000;
+        WeightProfile profile = criteria.profile();
 
         List<SearchResult> ranked = spatial.stream()
                 .filter(candidate -> entities.containsKey(candidate.getId()))
                 .filter(candidate -> rawScores.getOrDefault(candidate.getId(), 0.0) > 0)
                 .map(candidate -> toResult(entities.get(candidate.getId()), candidate.getDistanceMeters(),
-                        rawScores.getOrDefault(candidate.getId(), 0.0), maxBm25, radiusMeters, visitAt))
+                        rawScores.getOrDefault(candidate.getId(), 0.0), maxBm25, radiusMeters, visitAt,
+                        profile, globalMeanRating))
                 .sorted((left, right) -> {
                     int scoreOrder = Double.compare(right.scoreDetail().finalScore(), left.scoreDetail().finalScore());
                     return scoreOrder != 0 ? scoreOrder : Boolean.compare(right.open(), left.open());
@@ -107,10 +121,11 @@ public class SearchService {
     }
 
     private SearchResult toResult(PoiEntity poi, double distance, double rawBm25, double maxBm25,
-                                  double radiusMeters, OffsetDateTime visitAt) {
+                                  double radiusMeters, OffsetDateTime visitAt,
+                                  WeightProfile profile, double globalMeanRating) {
         TemporalFitService.TemporalFit temporal = temporalFitService.evaluate(poi, visitAt);
-        ScoreDetail score = rankingService.score(rawBm25, maxBm25, distance, radiusMeters,
-                temporal.score(), poi.getAvgRating().doubleValue());
+        ScoreDetail score = rankingService.score(profile, rawBm25, maxBm25, distance, radiusMeters,
+                temporal.score(), poi.getAvgRating().doubleValue(), poi.getRatingCount(), globalMeanRating);
         return new SearchResult(poi.getId(), poi.getName(), poi.getCategory().getName(), poi.getAddress(),
                 poi.getLatitude(), poi.getLongitude(), Math.round(distance * 10.0) / 10.0, temporal.open(), score);
     }
