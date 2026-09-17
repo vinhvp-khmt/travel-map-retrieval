@@ -15,12 +15,25 @@ import org.springframework.stereotype.Service;
  *       mới rẽ nhánh công thức theo profile.</li>
  * </ul>
  *
- * <p>Ở phần 2.1, hai công thức mới ({@link #spatialDecay}, {@link #ratingShrinkage})
- * tạm trả về đúng kết quả của công thức cũ, nên {@code V2} chạy giống hệt {@code V1}.
- * Phần 2.2 sẽ thay ruột hai hàm này bằng spatial decay + Bayesian shrinkage thật.
+ * <p>Phần 2.2 (đã cắm công thức thật): {@link #spatialDecay} dùng suy giảm theo hàm mũ
+ * và {@link #ratingShrinkage} dùng Bayesian shrinkage, nên từ nay {@code V2} cho kết quả
+ * KHÁC {@code V1} — quán nhiều lượt đánh giá được ưu tiên hơn và điểm khoảng cách mượt hơn.
+ * {@code V1} vẫn giữ nguyên tuyệt đối hành vi cũ.
  */
 @Service
 public class RankingService {
+
+    /**
+     * Số lượt đánh giá "ảo" của prior trong Bayesian shrinkage (tham số {@code m}).
+     * Càng lớn thì càng cần nhiều lượt thật mới kéo điểm ra khỏi trung bình chung.
+     */
+    private static final double DEFAULT_CONFIDENCE_M = 20.0;
+
+    /**
+     * Prior dự phòng khi hệ thống chưa có {@code globalMeanRating} hợp lệ
+     * (ví dụ tập kết quả rỗng). Chọn 3.7 ≈ mức trung bình quán ăn/đồ uống điển hình.
+     */
+    private static final double DEFAULT_FALLBACK_PRIOR = 3.7;
 
     /**
      * Công thức gốc (V1) — không đổi một dòng logic nào so với bản trước.
@@ -73,24 +86,53 @@ public class RankingService {
     }
 
     /**
-     * Điểm không gian theo kiểu suy giảm mượt.
+     * Điểm không gian theo kiểu suy giảm mượt (exponential decay).
      *
-     * <p>TODO (phần 2.2): thay bằng {@code exp(-distance / (radius/3))} hoặc half-life.
-     * Hiện tạm dùng công thức tuyến tính để {@code V2} chạy giống {@code V1}.
+     * <p>Phần 2.2: thay công thức tuyến tính bằng suy giảm theo hàm mũ
+     * {@code exp(-distance / scale)} với {@code scale = radius / 3}. So với tuyến tính,
+     * cách này phạt nhẹ ở gần và phạt nặng dần khi ra xa, nhưng không bao giờ tụt về 0
+     * đột ngột tại đúng biên bán kính — nhờ vậy thứ tự các quán mượt và ổn định hơn.
+     *
+     * <p>Vì sao chia 3: tại {@code distance = radius} điểm còn {@code exp(-3) ≈ 0.05}
+     * (quán ở rìa vẫn được tính chút ít); tại {@code distance = radius/3} điểm còn
+     * {@code exp(-1) ≈ 0.37}. Kết quả luôn nằm trong [0,1] nhờ {@link #clamp}.
+     *
+     * @param distanceMeters khoảng cách tới người dùng (m), không âm
+     * @param radiusMeters   bán kính tìm kiếm (m); {@code <= 0} coi như không có tín hiệu → 0
      */
     static double spatialDecay(double distanceMeters, double radiusMeters) {
-        return clamp(1.0 - distanceMeters / radiusMeters);
+        if (radiusMeters <= 0) {
+            return 0;
+        }
+        double scale = radiusMeters / 3.0;
+        return clamp(Math.exp(-distanceMeters / scale));
     }
 
     /**
-     * Điểm đánh giá có hiệu chỉnh theo số lượt.
+     * Điểm đánh giá có hiệu chỉnh theo số lượt (Bayesian shrinkage).
      *
-     * <p>TODO (phần 2.2): thay bằng Bayesian shrinkage
-     * {@code adjusted = v/(v+m)*R + m/(v+m)*C}. Hiện tạm dùng {@code averageRating/5}
-     * để {@code V2} chạy giống {@code V1}.
+     * <p>Phần 2.2: giải bài toán "5★ với 1 lượt" trông ngon hơn "4.5★ với 200 lượt".
+     * Công thức kéo điểm ít lượt về gần điểm trung bình toàn hệ thống (prior {@code C}):
+     * <pre>{@code adjusted = v/(v+m) * R + m/(v+m) * C}</pre>
+     * với {@code R = averageRating}, {@code v = ratingCount}, {@code C = globalMeanRating}
+     * và {@code m = }{@value #DEFAULT_CONFIDENCE_M} (số lượt "ảo" của prior). Quán càng
+     * nhiều lượt ({@code v} lớn) thì càng tin vào điểm thật của nó; quán ít lượt bị kéo
+     * về prior nên không dễ vọt lên đầu chỉ nhờ vài lượt 5★.
+     *
+     * <p>Ví dụ (C = 3.7): 5★/1 lượt → adjusted ≈ 3.76; 4.5★/200 lượt → adjusted ≈ 4.43
+     * ⇒ quán nhiều lượt thắng. Điểm trả về là {@code adjusted / 5} nằm trong [0,1].
+     *
+     * @param averageRating    điểm sao trung bình của quán [0,5]
+     * @param ratingCount      số lượt đánh giá (âm được coi như 0)
+     * @param globalMeanRating prior — điểm sao trung bình toàn hệ thống;
+     *                         {@code <= 0} sẽ dùng mặc định {@value #DEFAULT_FALLBACK_PRIOR}
      */
     static double ratingShrinkage(double averageRating, long ratingCount, double globalMeanRating) {
-        return clamp(averageRating / 5.0);
+        double v = Math.max(0, ratingCount);
+        double m = DEFAULT_CONFIDENCE_M;
+        double c = globalMeanRating <= 0 ? DEFAULT_FALLBACK_PRIOR : globalMeanRating;
+        double adjusted = (v / (v + m)) * averageRating + (m / (v + m)) * c;
+        return clamp(adjusted / 5.0);
     }
 
     private static double clamp(double value) {

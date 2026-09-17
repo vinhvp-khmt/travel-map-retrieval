@@ -5,6 +5,7 @@ import com.travelmap.api.search.service.RankingService;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RankingServiceTest {
@@ -28,14 +29,45 @@ class RankingServiceTest {
     // ===== Test mới cho phần 2.1 (khung v1/v2) =====
 
     @Test
-    void v2FrameworkMatchesV1WhileFormulasUnchanged() {
-        // Giai đoạn 2.1: spatialDecay/ratingShrinkage tạm bằng công thức cũ,
-        // nên V2 phải cho cùng điểm với V1.
+    void v2DiffersFromV1AfterFormulasImplemented() {
+        // Phần 2.2: spatialDecay + ratingShrinkage đã cắm công thức thật,
+        // nên V2 phải KHÁC V1 ở cả điểm không gian lẫn điểm đánh giá.
+        // (Thay cho test cũ v2FrameworkMatchesV1WhileFormulasUnchanged của 2.1.)
         var v1 = ranking.score(1, 2, 500, 2_000, 1, 4);
         var v2 = ranking.score(WeightProfile.V2, 1, 2, 500, 2_000, 1, 4, 10, 3.7);
-        assertEquals(v1.finalScore(), v2.finalScore(), 1e-9);
-        assertEquals(v1.spatial(), v2.spatial(), 1e-9);
-        assertEquals(v1.rating(), v2.rating(), 1e-9);
+        assertNotEquals(v1.spatial(), v2.spatial(),
+                "V2 phải dùng spatial decay, khác linear của V1");
+        assertNotEquals(v1.rating(), v2.rating(),
+                "V2 phải dùng rating shrinkage, khác rating thô của V1");
+    }
+
+    // ===== Test mới cho phần 2.2 (spatial decay + rating shrinkage) =====
+
+    @Test
+    void rating_nhieu_luot_thang_it_luot() {
+        // 5★ nhưng chỉ 1 lượt phải thua 4.5★ với 200 lượt, nhờ Bayesian shrinkage.
+        double gm = 3.7;
+        var it = ranking.score(WeightProfile.V2, 1, 1, 0, 2_000, 1, 5.0, 1, gm);
+        var nhieu = ranking.score(WeightProfile.V2, 1, 1, 0, 2_000, 1, 4.5, 200, gm);
+        assertTrue(nhieu.rating() > it.rating(),
+                "quán 4.5★/200 lượt phải có điểm rating cao hơn quán 5★/1 lượt");
+    }
+
+    @Test
+    void spatial_decay_giam_dan() {
+        // Quán gần phải có điểm không gian cao hơn quán xa, và điểm vẫn dương ở rìa.
+        var gan = ranking.score(WeightProfile.V2, 1, 1, 100, 2_000, 1, 4, 10, 3.7);
+        var xa = ranking.score(WeightProfile.V2, 1, 1, 1_500, 2_000, 1, 4, 10, 3.7);
+        assertTrue(gan.spatial() > xa.spatial(), "gần phải hơn xa");
+        assertTrue(xa.spatial() > 0, "suy giảm mượt, không tụt về 0 đột ngột");
+    }
+
+    @Test
+    void v1_khong_bi_anh_huong() {
+        // V1 phải giữ nguyên công thức tuyến tính + rating thô như trước.
+        var v1 = ranking.score(1, 1, 1_000, 2_000, 1, 5);
+        assertEquals(0.5, v1.spatial(), 1e-6);   // linear: 1 - 1000/2000
+        assertEquals(1.0, v1.rating(), 1e-6);    // rating thô: 5/5
     }
 
     @Test
