@@ -37,11 +37,13 @@ public class SearchService {
     private final SearchRequestValidator validator;
     private final TemporalFitService temporalFitService;
     private final RankingService rankingService;
+    private final DiversityReranker diversityReranker;
 
     public SearchService(PoiRepository poiRepository, CategoryRepository categoryRepository,
                          SearchLogRepository searchLogRepository, VietnameseTokenizer tokenizer,
                          QueryNormalizer queryNormalizer, SearchRequestValidator validator,
-                         TemporalFitService temporalFitService, RankingService rankingService) {
+                         TemporalFitService temporalFitService, RankingService rankingService,
+                         DiversityReranker diversityReranker) {
         this.poiRepository = poiRepository;
         this.categoryRepository = categoryRepository;
         this.searchLogRepository = searchLogRepository;
@@ -50,6 +52,7 @@ public class SearchService {
         this.validator = validator;
         this.temporalFitService = temporalFitService;
         this.rankingService = rankingService;
+        this.diversityReranker = diversityReranker;
     }
 
     @Transactional
@@ -99,6 +102,13 @@ public class SearchService {
                     return scoreOrder != 0 ? scoreOrder : Boolean.compare(right.open(), left.open());
                 })
                 .toList();
+
+        // Đa dạng hoá trang đầu (phần 2.3): gộp chi nhánh trùng tên + giới hạn số quán
+        // cùng loại. Chạy SAU khi đã sort và TRƯỚC khi phân trang, nên chỉ đổi thứ tự
+        // chứ không làm thay đổi tổng số kết quả.
+        if (criteria.diversify()) {
+            ranked = diversityReranker.rerank(ranked, DiversityReranker.DEFAULT_CATEGORY_CAP, true);
+        }
 
         int from = Math.min(criteria.page() * criteria.size(), ranked.size());
         int to = Math.min(from + criteria.size(), ranked.size());

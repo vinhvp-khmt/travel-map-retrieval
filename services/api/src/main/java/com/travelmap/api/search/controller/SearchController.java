@@ -33,8 +33,9 @@ public class SearchController {
                                  @RequestParam(defaultValue = "20") int size,
                                  @RequestParam(required = false) Integer priceLevel,
                                  @RequestParam(required = false) UUID categoryId,
-                                 @RequestParam(defaultValue = "v1") String profile) {
+                                 @RequestParam(defaultValue = "v1") String profile,
+                                 @RequestParam(defaultValue = "true") boolean diversify) {
         return searchService.search(new SearchCriteria(query, latitude, longitude, radiusKm,
-                visitAt, page, size, priceLevel, categoryId, WeightProfile.from(profile)));
+                visitAt, page, size, priceLevel, categoryId, WeightProfile.from(profile), diversify));
     }
 }

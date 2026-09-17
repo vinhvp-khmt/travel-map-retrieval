@@ -9,8 +9,10 @@ import com.travelmap.api.poi.model.PoiStatus;
 import com.travelmap.api.poi.repository.CategoryRepository;
 import com.travelmap.api.poi.repository.PoiRepository;
 import com.travelmap.api.poi.repository.SpatialCandidateProjection;
+import com.travelmap.api.poi.service.PoiNameNormalizer;
 import com.travelmap.api.search.model.SearchCriteria;
 import com.travelmap.api.search.repository.SearchLogRepository;
+import com.travelmap.api.search.service.DiversityReranker;
 import com.travelmap.api.search.service.QueryNormalizer;
 import com.travelmap.api.search.service.RankingService;
 import com.travelmap.api.search.service.SearchService;
@@ -38,7 +40,7 @@ class SearchServiceTest {
         var tokenizer = new SimpleVietnameseTokenizer();
         SearchService service = new SearchService(pois, categories, logs, tokenizer,
                 new QueryNormalizer(tokenizer), new SearchRequestValidator(), new TemporalFitService(),
-                new RankingService());
+                new RankingService(), new DiversityReranker(new PoiNameNormalizer()));
         PoiEntity cafe = activeCafe();
         SpatialCandidateProjection candidate = mock(SpatialCandidateProjection.class);
         when(candidate.getId()).thenReturn(cafe.getId());
@@ -66,7 +68,7 @@ class SearchServiceTest {
         var tokenizer = new SimpleVietnameseTokenizer();
         SearchService service = new SearchService(pois, categories, logs, tokenizer,
                 new QueryNormalizer(tokenizer), new SearchRequestValidator(), new TemporalFitService(),
-                new RankingService());
+                new RankingService(), new DiversityReranker(new PoiNameNormalizer()));
         when(pois.findAllByStatus(PoiStatus.ACTIVE)).thenReturn(List.of());
         when(pois.findSpatialCandidates(10.77, 106.70, 2_000, null, null, 500)).thenReturn(List.of());
         when(pois.findAllByIdIn(List.of())).thenReturn(List.of());
