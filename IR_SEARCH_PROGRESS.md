@@ -7,7 +7,7 @@
 ## Milestone summary
 
 - [ ] M0 — Reproducible baseline and progress tracking
-- [ ] M1 — Frontend uses the backend IR search path
+- [x] M1 — Frontend uses the backend IR search path
 - [ ] M2 — Versioned, explainable ranking and reliable index lifecycle
 - [ ] M3 — Deterministic 30–50 POI evaluation corpus
 - [ ] M4 — Graded qrels and quantitative evaluator
@@ -26,14 +26,14 @@
 
 ## M1 — Backend IR is the product search path
 
-- [ ] Replace the frontend Geoapify Places result path with `/api/v1/search`.
-- [ ] Forward query, GPS, radius, visit time, and supported filters to the backend.
-- [ ] Remove synthetic Geoapify BM25/rating/temporal/final scores.
-- [ ] Keep Geoapify only for map tiles and address/geocoding suggestions.
-- [ ] Ensure internal POI search remains usable when Geoapify Places is unavailable.
-- [ ] Update frontend unit/E2E tests to verify that product search calls the backend.
-- [ ] Verify backend and frontend test suites.
-- [ ] Commit and push M1.
+- [x] Replace the frontend Geoapify Places result path with `/api/v1/search`.
+- [x] Forward query, GPS, radius, visit time, and supported filters to the backend.
+- [x] Remove synthetic Geoapify BM25/rating/temporal/final scores.
+- [x] Keep Geoapify only for map tiles and address/geocoding suggestions.
+- [x] Ensure internal POI search remains usable when Geoapify Places is unavailable.
+- [x] Update frontend unit/E2E tests to verify that product search calls the backend.
+- [x] Verify backend and frontend test suites — backend 59 tests; frontend 17 tests and production build pass.
+- [x] Commit and push M1.
 
 ## M2 — Versioned and explainable ranking
 

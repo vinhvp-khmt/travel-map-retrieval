@@ -15,7 +15,6 @@ export type SearchResult = {
   longitude: number
   distanceMeters: number
   open: boolean
-  source?: 'local' | 'geoapify'
   scoreDetail: ScoreDetail
 }
 

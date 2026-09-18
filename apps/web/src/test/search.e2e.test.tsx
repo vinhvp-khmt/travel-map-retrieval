@@ -3,8 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import App from '../App'
 import { cafe } from './fixtures'
 
-const searchGeoapify = vi.fn()
-vi.mock('../api/geoapify', () => ({ searchGeoapify: (...args: unknown[]) => searchGeoapify(...args) }))
+const searchPois = vi.fn()
+vi.mock('../api/search', () => ({ searchPois: (...args: unknown[]) => searchPois(...args) }))
 vi.mock('../components/MapView', () => ({
   MapView: ({ results }: { results: unknown[] }) => <div aria-label="Bản đồ kết quả">{results.length} markers</div>,
 }))
@@ -22,7 +22,7 @@ function mockLocation(latitude = 21.0278, longitude = 105.8342) {
 
 describe('Search journey E2E', () => {
   beforeEach(() => {
-    searchGeoapify.mockReset()
+    searchPois.mockReset()
     sessionStorage.clear()
   })
 
@@ -41,15 +41,15 @@ describe('Search journey E2E', () => {
       refreshToken: 'refresh',
       refreshExpiresInSeconds: 604800,
     }))
-    searchGeoapify.mockResolvedValue([])
+    searchPois.mockResolvedValue({ normalizedQuery: 'ca phe', page: 0, size: 20, total: 0, results: [], suggestion: null })
     render(<App />)
     fireEvent.change(screen.getByLabelText('Bạn muốn quán coffee kiểu nào?'), { target: { value: 'cà phê' } })
     fireEvent.click(screen.getByRole('button', { name: 'Tìm quán' }))
     await waitFor(() => expect(screen.getByText(/Hãy bấm “Dùng vị trí của tôi” trước khi tìm/)).toBeInTheDocument())
-    expect(searchGeoapify).not.toHaveBeenCalled()
+    expect(searchPois).not.toHaveBeenCalled()
   })
 
-  it('searches Geoapify places after the user provides a location', async () => {
+  it('searches backend-ranked POIs after the user provides a location', async () => {
     sessionStorage.setItem('travelmap.session', JSON.stringify({
       email: 'user@travelmap.local',
       tokenType: 'Bearer',
@@ -58,13 +58,13 @@ describe('Search journey E2E', () => {
       refreshToken: 'refresh',
       refreshExpiresInSeconds: 604800,
     }))
-    searchGeoapify.mockResolvedValue([cafe])
+    searchPois.mockResolvedValue({ normalizedQuery: 'ca phe', page: 0, size: 20, total: 1, results: [cafe], suggestion: null })
     mockLocation()
     render(<App />)
     fireEvent.change(screen.getByLabelText('Bạn muốn quán coffee kiểu nào?'), { target: { value: 'cà phê' } })
     fireEvent.click(screen.getByRole('button', { name: 'Dùng vị trí của tôi' }))
     await waitFor(() => expect(screen.getByText('1 markers')).toBeInTheDocument())
-    expect(searchGeoapify).toHaveBeenCalledWith(expect.objectContaining({ latitude: 21.0278, longitude: 105.8342 }), expect.any(AbortSignal))
+    expect(searchPois).toHaveBeenCalledWith(expect.objectContaining({ latitude: 21.0278, longitude: 105.8342 }), expect.any(AbortSignal))
     fireEvent.click(screen.getByRole('button', { name: new RegExp(cafe.name) }))
     expect(screen.getByLabelText(`Chi tiết ${cafe.name}`)).toBeInTheDocument()
     expect(screen.getByLabelText('Chi tiết điểm xếp hạng')).toBeInTheDocument()
@@ -79,13 +79,14 @@ describe('Search journey E2E', () => {
       refreshToken: 'refresh',
       refreshExpiresInSeconds: 604800,
     }))
-    searchGeoapify.mockResolvedValue(Array.from({ length: 12 }, (_, index) => ({
+    const results = Array.from({ length: 12 }, (_, index) => ({
       ...cafe,
-      poiId: `geoapify:${index + 1}`,
+      poiId: `local:${index + 1}`,
       name: `Cafe ${index + 1}`,
       latitude: cafe.latitude + index * 0.0001,
       longitude: cafe.longitude + index * 0.0001,
-    })))
+    }))
+    searchPois.mockResolvedValue({ normalizedQuery: 'cafe', page: 0, size: 20, total: 12, results, suggestion: null })
     mockLocation()
     render(<App />)
     fireEvent.change(screen.getByLabelText('Bạn muốn quán coffee kiểu nào?'), { target: { value: 'cafe' } })

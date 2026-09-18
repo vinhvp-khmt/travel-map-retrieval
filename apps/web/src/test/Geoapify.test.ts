@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { geocodePlaces, placesByCategory, searchGeoapify } from '../api/geoapify'
+import { geocodeAddresses } from '../api/geoapify'
 
 describe('Geoapify geocoding', () => {
   afterEach(() => vi.unstubAllGlobals())
@@ -21,12 +21,11 @@ describe('Geoapify geocoding', () => {
       }),
     })
     vi.stubGlobal('fetch', fetch)
-    const results = await geocodePlaces({ query: 'Ben Thanh', latitude: 10.7769, longitude: 106.7009, radiusKm: 2 })
+    const results = await geocodeAddresses({ query: 'Ben Thanh', latitude: 10.7769, longitude: 106.7009, radiusKm: 2 })
     expect(fetch.mock.calls[0][0]).toContain('filter=circle%3A106.7009%2C10.7769%2C2000')
     expect(results[0]).toMatchObject({
-      poiId: 'geoapify:place-1',
+      placeId: 'place-1',
       name: 'Ben Thanh Market',
-      source: 'geoapify',
       distanceMeters: 120,
     })
   })
@@ -46,49 +45,7 @@ describe('Geoapify geocoding', () => {
         }],
       }),
     }))
-    const results = await geocodePlaces({ query: 'cafe', latitude: 10.7769, longitude: 106.7009, radiusKm: 2 })
+    const results = await geocodeAddresses({ query: 'cafe', latitude: 10.7769, longitude: 106.7009, radiusKm: 2 })
     expect(results).toEqual([])
-  })
-
-  it('searches Geoapify Places by category around the user location', async () => {
-    const fetch = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        features: [{
-          properties: {
-            place_id: 'cafe-1',
-            name: 'Garden Coffee',
-            formatted: '1 Coffee Street',
-            categories: ['catering.cafe'],
-            distance: 240,
-          },
-          geometry: { coordinates: [106.701, 10.777] },
-        }],
-      }),
-    })
-    vi.stubGlobal('fetch', fetch)
-    const results = await placesByCategory({ query: 'coffee sân vườn', latitude: 10.7769, longitude: 106.7009, radiusKm: 2 })
-    expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/v2/places?'), expect.any(Object))
-    expect(fetch.mock.calls[0][0]).toContain('categories=catering.cafe')
-    expect(fetch.mock.calls[0][0]).toContain('filter=circle%3A106.7009%2C10.7769%2C2000')
-    expect(results[0]).toMatchObject({
-      name: 'Garden Coffee',
-      category: 'catering cafe',
-      source: 'geoapify',
-    })
-  })
-
-  it('combines category places and geocoding results', async () => {
-    vi.stubGlobal('fetch', vi.fn()
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ features: [{ properties: { place_id: 'place-1', name: 'Coffee One', formatted: '1 Nguyen Hue', categories: ['catering.cafe'] }, geometry: { coordinates: [106.7, 10.77] } }] }),
-      })
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({ features: [{ properties: { place_id: 'place-2', name: 'Coffee Address', formatted: '2 Nguyen Hue', result_type: 'amenity' }, geometry: { coordinates: [106.71, 10.78] } }] }),
-      }))
-    const results = await searchGeoapify({ query: 'cafe', latitude: 10.7769, longitude: 106.7009, radiusKm: 2 })
-    expect(results.map((item) => item.name)).toEqual(['Coffee One', 'Coffee Address'])
   })
 })

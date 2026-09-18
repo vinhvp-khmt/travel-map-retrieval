@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import { AlertCircle, Coffee, Compass, LogOut, MapPinned, Navigation, UserRound } from 'lucide-react'
-import { searchGeoapify } from './api/geoapify'
+import { searchPois } from './api/search'
 import { MapView } from './components/MapView'
 import { PoiDetail } from './components/PoiDetail'
 import { SearchForm } from './components/SearchForm'
@@ -18,24 +18,6 @@ import './App.css'
 
 const EMPTY: SearchResponse = { normalizedQuery: '', page: 0, size: 20, total: 0, results: [], suggestion: null }
 const PAGE_SIZE = 10
-
-function toSearchResponse(input: SearchInput, external: SearchResult[]): SearchResponse {
-  const seen = new Set<string>()
-  const results = external.filter((item) => {
-    const key = `${item.name.toLowerCase()}:${item.latitude.toFixed(4)}:${item.longitude.toFixed(4)}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-  return {
-    normalizedQuery: input.query.trim().toLowerCase(),
-    page: 0,
-    size: 20,
-    total: results.length,
-    results,
-    suggestion: results.length ? null : 'Chưa tìm thấy quán coffee phù hợp quanh vị trí hiện tại. Hãy thử tăng bán kính hoặc đổi vibe.',
-  }
-}
 
 function App() {
   const isMobile = useMobile()
@@ -73,8 +55,7 @@ function App() {
     setUserLocation({ latitude: input.latitude, longitude: input.longitude })
     setLoading(true); setError(undefined); setSelected(undefined); setCurrentPage(0)
     try {
-      const external = await searchGeoapify(input, abortRef.current.signal)
-      setData(toSearchResponse(input, external))
+      setData(await searchPois(input, abortRef.current.signal))
     }
     catch (reason) { if ((reason as Error).name !== 'AbortError') setError((reason as Error).message) }
     finally { setLoading(false) }
@@ -173,7 +154,7 @@ function App() {
         </div>
         <div className={cn('relative overflow-hidden bg-muted', isMobile ? 'min-h-[420px]' : 'min-h-[560px]')}>
           <MapView results={visibleResults} selectedId={selected?.poiId} userLocation={userLocation} onSelect={selectPoi} />
-          <Badge variant="secondary" className="absolute bottom-3 left-3 z-[450]"><MapPinned className="mr-1 h-3 w-3" />Coffee places © OpenStreetMap / Geoapify</Badge>
+          <Badge variant="secondary" className="absolute bottom-3 left-3 z-[450]"><MapPinned className="mr-1 h-3 w-3" />Bản đồ © OpenStreetMap / Geoapify</Badge>
           {selected && <PoiDetail poi={selected} token={session.accessToken} onClose={() => setSelected(undefined)} />}
         </div>
       </section>
