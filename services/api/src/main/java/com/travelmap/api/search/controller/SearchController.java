@@ -34,8 +34,13 @@ public class SearchController {
                                  @RequestParam(required = false) Integer priceLevel,
                                  @RequestParam(required = false) UUID categoryId,
                                  @RequestParam(defaultValue = "v1") String profile,
+                                 @RequestParam(required = false) String rankingMode,
                                  @RequestParam(defaultValue = "true") boolean diversify) {
+        // rankingMode (keyword|distance|full) là tên tham số chuẩn cho việc so sánh
+        // baseline (dataset/evaluation plan 2.9); profile (v1|v2) là tên cũ vẫn giữ để
+        // tương thích ngược. Có cả hai thì rankingMode thắng.
+        String weightSource = rankingMode != null ? rankingMode : profile;
         return searchService.search(new SearchCriteria(query, latitude, longitude, radiusKm,
-                visitAt, page, size, priceLevel, categoryId, WeightProfile.from(profile), diversify));
+                visitAt, page, size, priceLevel, categoryId, WeightProfile.from(weightSource), diversify));
     }
 }

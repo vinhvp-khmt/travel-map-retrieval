@@ -80,6 +80,16 @@ class RankingServiceTest {
     }
 
     @Test
+    void profileFromAcceptsRankingModeVocabulary() {
+        // Phase 2.9 (dataset/evaluation plan): rankingMode=keyword|distance|full phải
+        // map đúng 3 baseline dùng để so sánh trong IrEvaluationTest.
+        assertEquals(WeightProfile.EVAL_KEYWORD_ONLY, WeightProfile.from("keyword"));
+        assertEquals(WeightProfile.EVAL_DISTANCE_ONLY, WeightProfile.from("distance"));
+        assertEquals(WeightProfile.V2, WeightProfile.from("full"));
+        assertEquals(WeightProfile.EVAL_KEYWORD_ONLY, WeightProfile.from("  KEYWORD "));
+    }
+
+    @Test
     void keywordOnlyProfileIgnoresDistanceAndRating() {
         // EVAL_KEYWORD_ONLY chỉ tính BM25 → điểm cuối = bm25 chuẩn hoá,
         // bất kể khoảng cách hay đánh giá.

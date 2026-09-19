@@ -15,8 +15,12 @@ package com.travelmap.api.search.model;
  * thay vì phải nhân bản code.
  *
  * <p><b>Bất biến:</b> tổng bốn trọng số nên bằng 1.0 để điểm cuối nằm trong [0,1].
- * Hai profile phục vụ đánh giá ở phần 2.4 ({@link #EVAL_KEYWORD_ONLY},
- * {@link #EVAL_DISTANCE_ONLY}) cố tình phá bất biến đó — chúng chỉ dùng trong test.
+ * Hai profile baseline ({@link #EVAL_KEYWORD_ONLY}, {@link #EVAL_DISTANCE_ONLY}) cố tình
+ * phá bất biến đó — chỉ dùng một tín hiệu duy nhất để so sánh với ranking đầy đủ.
+ *
+ * <p>Từ IR search plan (dataset/evaluation): ba baseline này lộ qua API bằng tham số
+ * {@code rankingMode=keyword|distance|full} (xem {@link #from(String)}), để chạy cùng một
+ * bộ query trên cả ba cấu hình và so sánh P@5/MAP/NDCG@10 — không cần UI riêng cho từng mode.
  */
 public enum WeightProfile {
 
@@ -26,10 +30,10 @@ public enum WeightProfile {
     /** Bản thử — spatial decay + rating shrinkage (ruột công thức làm ở phần 2.2). */
     V2(0.40, 0.30, 0.20, 0.10, SpatialMode.DECAY, RatingMode.SHRINKAGE),
 
-    /** Chỉ dùng cho đánh giá (2.4): chỉ tính BM25 (khớp từ khoá). */
+    /** Baseline 1 (rankingMode=keyword): chỉ tính BM25 (khớp từ khoá). */
     EVAL_KEYWORD_ONLY(1.00, 0.00, 0.00, 0.00, SpatialMode.LINEAR, RatingMode.RAW),
 
-    /** Chỉ dùng cho đánh giá (2.4): chỉ tính khoảng cách. */
+    /** Baseline 2 (rankingMode=distance): chỉ tính khoảng cách. */
     EVAL_DISTANCE_ONLY(0.00, 1.00, 0.00, 0.00, SpatialMode.LINEAR, RatingMode.RAW);
 
     /** Cách tính điểm không gian. */
@@ -94,15 +98,22 @@ public enum WeightProfile {
      * An toàn: giá trị null hoặc không hợp lệ đều rơi về {@link #V1} thay vì báo lỗi,
      * để một tham số sai không bao giờ làm hỏng truy vấn tìm kiếm.
      *
-     * <p>Chỉ chấp nhận "v1"/"v2" từ phía client; hai profile EVAL_* dành riêng cho
-     * bộ đánh giá nội bộ (2.4), không lộ qua API.
+     * <p>Chấp nhận hai bộ từ khoá tương đương:
+     * <ul>
+     *   <li>{@code v1}/{@code v2} — chọn công thức ranking đầy đủ (bản gốc / bản thử).</li>
+     *   <li>{@code keyword}/{@code distance}/{@code full} — ba baseline dùng cho evaluation
+     *       (Phase 2.9): chỉ BM25, chỉ khoảng cách, hoặc ranking đầy đủ (= {@code v2},
+     *       công thức đã được {@code IrEvaluationTest} xác nhận thắng cả hai baseline).</li>
+     * </ul>
      */
     public static WeightProfile from(String raw) {
         if (raw == null) {
             return V1;
         }
         return switch (raw.trim().toLowerCase()) {
-            case "v2" -> V2;
+            case "v2", "full" -> V2;
+            case "keyword" -> EVAL_KEYWORD_ONLY;
+            case "distance" -> EVAL_DISTANCE_ONLY;
             default -> V1;
         };
     }

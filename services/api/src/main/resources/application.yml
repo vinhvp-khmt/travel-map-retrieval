@@ -32,6 +32,13 @@ travelmap:
     webhook-secret: ${PAYMENT_WEBHOOK_SECRET:local-mock-webhook-secret-change-before-production}
   booking:
     expiry-scan-ms: ${BOOKING_EXPIRY_SCAN_MS:60000}
+  search:
+    bm25:
+      # Chuẩn IR: k1 kiểm soát mức bão hoà của term frequency, b kiểm soát mức
+      # chuẩn hoá theo độ dài tài liệu. Đổi giá trị này để chạy experiment mà
+      # không cần sửa code (BM25Scorer đọc qua @Value).
+      k1: ${SEARCH_BM25_K1:1.2}
+      b: ${SEARCH_BM25_B:0.75}
 
 ---
 spring:

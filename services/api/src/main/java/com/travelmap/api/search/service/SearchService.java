@@ -13,6 +13,7 @@ import com.travelmap.api.search.model.SearchCriteria;
 import com.travelmap.api.search.model.WeightProfile;
 import com.travelmap.api.search.repository.SearchLogRepository;
 import com.travelmap.api.search.validation.SearchRequestValidator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,12 +39,18 @@ public class SearchService {
     private final TemporalFitService temporalFitService;
     private final RankingService rankingService;
     private final DiversityReranker diversityReranker;
+    private final BM25Scorer bm25Scorer;
 
+    /**
+     * Constructor chính, được Spring dùng: {@code bm25Scorer} lấy từ context nên k1/b
+     * đọc đúng config ({@code travelmap.search.bm25.*}) thay vì hằng số mặc định.
+     */
+    @Autowired
     public SearchService(PoiRepository poiRepository, CategoryRepository categoryRepository,
                          SearchLogRepository searchLogRepository, VietnameseTokenizer tokenizer,
                          QueryNormalizer queryNormalizer, SearchRequestValidator validator,
                          TemporalFitService temporalFitService, RankingService rankingService,
-                         DiversityReranker diversityReranker) {
+                         DiversityReranker diversityReranker, BM25Scorer bm25Scorer) {
         this.poiRepository = poiRepository;
         this.categoryRepository = categoryRepository;
         this.searchLogRepository = searchLogRepository;
@@ -53,6 +60,22 @@ public class SearchService {
         this.temporalFitService = temporalFitService;
         this.rankingService = rankingService;
         this.diversityReranker = diversityReranker;
+        this.bm25Scorer = bm25Scorer;
+    }
+
+    /**
+     * Constructor tương thích ngược 9 tham số (không có {@code bm25Scorer}): dùng
+     * {@code BM25Scorer} mặc định (k1=1.2, b=0.75). Giữ lại để {@code SearchServiceTest} và
+     * {@code IrEvaluationTest} — dựng {@code SearchService} bằng tay, không qua Spring —
+     * tiếp tục biên dịch và chạy nguyên vẹn.
+     */
+    public SearchService(PoiRepository poiRepository, CategoryRepository categoryRepository,
+                         SearchLogRepository searchLogRepository, VietnameseTokenizer tokenizer,
+                         QueryNormalizer queryNormalizer, SearchRequestValidator validator,
+                         TemporalFitService temporalFitService, RankingService rankingService,
+                         DiversityReranker diversityReranker) {
+        this(poiRepository, categoryRepository, searchLogRepository, tokenizer, queryNormalizer,
+                validator, temporalFitService, rankingService, diversityReranker, new BM25Scorer());
     }
 
     @Transactional
@@ -65,7 +88,6 @@ public class SearchService {
         List<String> queryTerms = tokenizer.tokenize(criteria.query());
         List<PoiEntity> activePois = poiRepository.findAllByStatus(PoiStatus.ACTIVE);
         InvertedIndex index = buildIndex(activePois);
-        BM25Scorer bm25Scorer = new BM25Scorer();
 
         // Prior cho công thức rating shrinkage (V2): điểm sao trung bình toàn hệ thống,
         // chỉ tính trên các quán đã có ít nhất một lượt đánh giá.
