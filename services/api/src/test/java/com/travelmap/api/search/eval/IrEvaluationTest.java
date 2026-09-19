@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -300,9 +301,10 @@ class IrEvaluationTest {
         sb.append("# Kết quả đánh giá IR (phần 2.4)\n\n");
         sb.append("Bộ dữ liệu: ").append(queries.size()).append(" truy vấn, ")
                 .append(allPois.size()).append(" POI cố định. diversify=false.\n\n");
-        sb.append(String.format("| %-14s | %8s | %8s | %9s |%n", "Cấu hình", "P@" + P_AT, "MAP", "NDCG@" + NDCG_AT));
+        sb.append(String.format(Locale.ROOT, "| %-14s | %8s | %8s | %9s |%n",
+                "Cấu hình", "P@" + P_AT, "MAP", "NDCG@" + NDCG_AT));
         sb.append("|----------------|----------|----------|-----------|\n");
-        rows.forEach((name, s) -> sb.append(String.format("| %-14s | %8.4f | %8.4f | %9.4f |%n",
+        rows.forEach((name, s) -> sb.append(String.format(Locale.ROOT, "| %-14s | %8.4f | %8.4f | %9.4f |%n",
                 name, s.pAtK(), s.map(), s.ndcg())));
         sb.append("\nFull = V2 (đủ 4 tín hiệu) thắng cả ba độ đo, xác nhận việc gộp BM25 + khoảng cách "
                 + "(spatial decay) + độ mở cửa + rating (shrinkage) cho kết quả tốt hơn hẳn so với chỉ dùng "
