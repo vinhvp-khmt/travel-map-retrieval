@@ -81,8 +81,17 @@ public class RankingService {
                 + profile.weightTemporal() * temporal
                 + profile.weightRating() * rating;
 
+        double bm25Contribution = profile.weightBm25() * bm25;
+        double spatialContribution = profile.weightSpatial() * spatial;
+        double temporalContribution = profile.weightTemporal() * temporal;
+        double ratingContribution = profile.weightRating() * rating;
+
         return new ScoreDetail(round(bm25), round(spatial), round(temporal),
-                round(rating), round(finalScore));
+                round(rating), round(finalScore), profile.apiName(), round(rawBm25),
+                round(distanceMeters), round(averageRating), ratingCount,
+                profile.weightBm25(), profile.weightSpatial(), profile.weightTemporal(), profile.weightRating(),
+                round(bm25Contribution), round(spatialContribution), round(temporalContribution),
+                round(ratingContribution));
     }
 
     /**

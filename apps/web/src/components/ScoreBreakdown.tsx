@@ -1,7 +1,9 @@
 import type { ScoreDetail } from '../types/search'
 import { Card, CardContent } from '@/components/ui/card'
 
-const signals: Array<[keyof ScoreDetail, string]> = [
+type SignalKey = 'bm25' | 'spatial' | 'temporal' | 'rating'
+
+const signals: Array<[SignalKey, string]> = [
   ['bm25', 'Phù hợp'], ['spatial', 'Khoảng cách'], ['temporal', 'Thời gian'], ['rating', 'Đánh giá'],
 ]
 

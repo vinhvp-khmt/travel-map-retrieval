@@ -87,4 +87,26 @@ class RankingServiceTest {
                 1, 2, 1_999, 2_000, 0, 1, 0, 3.7);
         assertEquals(0.5, score.finalScore(), 1e-9); // 1/2 = 0.5
     }
+
+    @Test
+    void scoreDetailExplainsAndReproducesTheFinalScore() {
+        var score = ranking.score(WeightProfile.V2,
+                1.5, 2.0, 420, 2_000, 0.5, 4.5, 200, 3.8);
+
+        assertEquals("full-v2", score.rankingProfile());
+        assertEquals(1.5, score.rawBm25());
+        assertEquals(420, score.distanceMeters());
+        assertEquals(4.5, score.averageRating());
+        assertEquals(200, score.ratingCount());
+        assertEquals(score.finalScore(), score.bm25Contribution() + score.spatialContribution()
+                + score.temporalContribution() + score.ratingContribution(), 0.0002);
+    }
+
+    @Test
+    void publicProfileNamesResolveToAllComparisonStrategies() {
+        assertEquals(WeightProfile.V1, WeightProfile.from("full-v1"));
+        assertEquals(WeightProfile.V2, WeightProfile.from("full-v2"));
+        assertEquals(WeightProfile.EVAL_KEYWORD_ONLY, WeightProfile.from("bm25-only"));
+        assertEquals(WeightProfile.EVAL_DISTANCE_ONLY, WeightProfile.from("distance-only"));
+    }
 }

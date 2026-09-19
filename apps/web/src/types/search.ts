@@ -4,6 +4,19 @@ export type ScoreDetail = {
   temporal: number
   rating: number
   finalScore: number
+  rankingProfile?: string
+  rawBm25?: number
+  distanceMeters?: number
+  averageRating?: number
+  ratingCount?: number
+  bm25Weight?: number
+  spatialWeight?: number
+  temporalWeight?: number
+  ratingWeight?: number
+  bm25Contribution?: number
+  spatialContribution?: number
+  temporalContribution?: number
+  ratingContribution?: number
 }
 
 export type SearchResult = {
@@ -25,6 +38,7 @@ export type SearchResponse = {
   total: number
   results: SearchResult[]
   suggestion: string | null
+  rankingProfile?: string
 }
 
 export type CoffeeSpace = 'indoor' | 'outdoor' | 'garden' | 'rooftop'

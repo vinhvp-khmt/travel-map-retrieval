@@ -11,6 +11,7 @@ import com.travelmap.api.poi.model.PoiEntity;
 import com.travelmap.api.poi.model.PoiStatus;
 import com.travelmap.api.poi.repository.PoiApprovalHistoryRepository;
 import com.travelmap.api.poi.repository.PoiRepository;
+import com.travelmap.api.search.service.SearchIndexService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,12 +23,14 @@ public class PoiApprovalService {
     private final PoiRepository poiRepository;
     private final PoiApprovalHistoryRepository historyRepository;
     private final UserRepository userRepository;
+    private final SearchIndexService searchIndexService;
 
     public PoiApprovalService(PoiRepository poiRepository, PoiApprovalHistoryRepository historyRepository,
-                              UserRepository userRepository) {
+                              UserRepository userRepository, SearchIndexService searchIndexService) {
         this.poiRepository = poiRepository;
         this.historyRepository = historyRepository;
         this.userRepository = userRepository;
+        this.searchIndexService = searchIndexService;
     }
 
     @Transactional
@@ -45,6 +48,8 @@ public class PoiApprovalService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "USER_NOT_FOUND", "Admin user was not found"));
         if (request.decision() == ApprovalDecision.APPROVED) poi.approve(); else poi.reject();
         historyRepository.save(new PoiApprovalHistoryEntity(poi, admin, request.decision(), reason));
+        poiRepository.flush();
+        searchIndexService.rebuild();
         return PoiResponse.from(poi);
     }
 }
