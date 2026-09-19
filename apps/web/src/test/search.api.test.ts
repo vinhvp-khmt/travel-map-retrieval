@@ -30,4 +30,34 @@ describe('backend POI search client', () => {
     expect(url.searchParams.get('visitAt')).toBe('2026-09-18T13:00:00.000Z')
     expect(url.hostname).not.toContain('geoapify')
   })
+
+  it('omits latitude/longitude entirely when the caller has no GPS (không bắt buộc phải có vị trí)', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ normalizedQuery: 'cafe', page: 0, size: 20, total: 0, results: [], suggestion: null }),
+    })
+    vi.stubGlobal('fetch', fetch)
+
+    await searchPois({ query: 'cafe', latitude: Number.NaN, longitude: Number.NaN, radiusKm: 2 })
+
+    const url = new URL(fetch.mock.calls[0][0], 'http://localhost')
+    expect(url.searchParams.has('latitude')).toBe(false)
+    expect(url.searchParams.has('longitude')).toBe(false)
+  })
+
+  it('attaches the Authorization header only when a token is given (để backend ghi được search history)', async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ normalizedQuery: 'cafe', page: 0, size: 20, total: 0, results: [], suggestion: null }),
+    })
+    vi.stubGlobal('fetch', fetch)
+
+    await searchPois({ query: 'cafe', latitude: 10.77, longitude: 106.70, radiusKm: 2 }, { token: 'my-token' })
+    const [, initWithToken] = fetch.mock.calls[0]
+    expect(new Headers(initWithToken?.headers).get('Authorization')).toBe('Bearer my-token')
+
+    await searchPois({ query: 'cafe', latitude: 10.77, longitude: 106.70, radiusKm: 2 })
+    const [, initWithoutToken] = fetch.mock.calls[1]
+    expect(initWithoutToken?.headers).toBeUndefined()
+  })
 })

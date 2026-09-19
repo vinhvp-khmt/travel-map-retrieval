@@ -65,12 +65,15 @@ function App() {
   async function search(input: SearchInput) {
     abortRef.current?.abort()
     abortRef.current = new AbortController()
-    setUserLocation({ latitude: input.latitude, longitude: input.longitude })
+    // Chỉ set vị trí khi thật sự có toạ độ hợp lệ — search giờ không bắt buộc phải có GPS.
+    if (Number.isFinite(input.latitude) && Number.isFinite(input.longitude)) {
+      setUserLocation({ latitude: input.latitude, longitude: input.longitude })
+    }
     setLoading(true); setError(undefined); setSelected(undefined); setCurrentPage(0)
     try {
-      setData(await searchPois(input, abortRef.current.signal))
-      // Backend tự ghi lịch sử khi request có token; nạp lại danh sách để "Tìm kiếm gần
-      // đây" phản ánh đúng ngay, không cần tải lại trang.
+      setData(await searchPois(input, { signal: abortRef.current.signal, token: session?.accessToken }))
+      // Backend tự ghi lịch sử khi request có token thật; nạp lại danh sách để "Tìm kiếm
+      // gần đây" phản ánh đúng ngay, không cần tải lại trang.
       if (session) fetchSearchHistory(session.accessToken).then(setSearchHistory).catch(() => undefined)
     }
     catch (reason) { if ((reason as Error).name !== 'AbortError') setError((reason as Error).message) }

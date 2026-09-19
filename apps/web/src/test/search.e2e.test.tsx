@@ -32,7 +32,7 @@ describe('Search journey E2E', () => {
     expect(screen.queryByLabelText('Tìm quán coffee')).not.toBeInTheDocument()
   })
 
-  it('searches, synchronizes the result list and opens POI score detail', async () => {
+  it('searches without GPS (không bắt buộc phải có vị trí) and sends the login token', async () => {
     sessionStorage.setItem('travelmap.session', JSON.stringify({
       email: 'user@travelmap.local',
       tokenType: 'Bearer',
@@ -45,8 +45,12 @@ describe('Search journey E2E', () => {
     render(<App />)
     fireEvent.change(screen.getByLabelText('Bạn muốn quán coffee kiểu nào?'), { target: { value: 'cà phê' } })
     fireEvent.click(screen.getByRole('button', { name: 'Tìm quán' }))
-    await waitFor(() => expect(screen.getByText(/Hãy bấm “Dùng vị trí của tôi” trước khi tìm/)).toBeInTheDocument())
-    expect(searchPois).not.toHaveBeenCalled()
+    await waitFor(() => expect(searchPois).toHaveBeenCalled())
+    const [calledInput, calledOptions] = searchPois.mock.calls[0]
+    expect(calledInput.query).toBe('cà phê')
+    expect(Number.isFinite(calledInput.latitude)).toBe(false)
+    expect(Number.isFinite(calledInput.longitude)).toBe(false)
+    expect(calledOptions).toEqual(expect.objectContaining({ token: 'access', signal: expect.any(AbortSignal) }))
   })
 
   it('searches backend-ranked POIs after the user provides a location', async () => {
@@ -64,7 +68,10 @@ describe('Search journey E2E', () => {
     fireEvent.change(screen.getByLabelText('Bạn muốn quán coffee kiểu nào?'), { target: { value: 'cà phê' } })
     fireEvent.click(screen.getByRole('button', { name: 'Dùng vị trí của tôi' }))
     await waitFor(() => expect(screen.getByText('1 markers')).toBeInTheDocument())
-    expect(searchPois).toHaveBeenCalledWith(expect.objectContaining({ latitude: 21.0278, longitude: 105.8342 }), expect.any(AbortSignal))
+    expect(searchPois).toHaveBeenCalledWith(
+      expect.objectContaining({ latitude: 21.0278, longitude: 105.8342 }),
+      expect.objectContaining({ token: 'access', signal: expect.any(AbortSignal) }),
+    )
     fireEvent.click(screen.getByRole('button', { name: new RegExp(cafe.name) }))
     expect(screen.getByLabelText(`Chi tiết ${cafe.name}`)).toBeInTheDocument()
     expect(screen.getByLabelText('Chi tiết điểm xếp hạng')).toBeInTheDocument()

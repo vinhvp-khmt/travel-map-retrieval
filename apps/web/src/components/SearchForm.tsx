@@ -15,8 +15,17 @@ export function validateSearchInput(input: SearchInput): Record<string, string> 
   const errors: Record<string, string> = {}
   const queryLength = input.query.trim().length
   if (queryLength < 1 || queryLength > 200) errors.query = 'Nhập từ khóa từ 1 đến 200 ký tự.'
-  if (!Number.isFinite(input.latitude) || input.latitude < -90 || input.latitude > 90) errors.latitude = 'Hãy bấm “Dùng vị trí của tôi” trước khi tìm.'
-  if (!Number.isFinite(input.longitude) || input.longitude < -180 || input.longitude > 180) errors.longitude = 'Hãy bấm “Dùng vị trí của tôi” trước khi tìm.'
+  // GPS là tuỳ chọn — backend chấp nhận thiếu cả hai (search vẫn chạy, chỉ mất tín hiệu
+  // khoảng cách). Chỉ báo lỗi khi: có giá trị nhưng ngoài phạm vi hợp lệ, hoặc có đúng một
+  // trong hai (nửa vời, backend sẽ từ chối) — không còn bắt buộc phải bấm "Dùng vị trí của tôi".
+  const hasLatitude = Number.isFinite(input.latitude)
+  const hasLongitude = Number.isFinite(input.longitude)
+  if (hasLatitude !== hasLongitude) {
+    errors.latitude = 'Cần cả vĩ độ và kinh độ, hoặc để trống cả hai để tìm không theo khoảng cách.'
+  } else if (hasLatitude && hasLongitude) {
+    if (input.latitude < -90 || input.latitude > 90) errors.latitude = 'Vĩ độ không hợp lệ.'
+    if (input.longitude < -180 || input.longitude > 180) errors.longitude = 'Kinh độ không hợp lệ.'
+  }
   if (input.radiusKm < 0.1 || input.radiusKm > 10) errors.radiusKm = 'Thiết lập tìm kiếm không hợp lệ.'
   if (input.visitAt && new Date(input.visitAt).getTime() < Date.now() - 60_000) {
     errors.visitAt = 'Thời gian ghé thăm phải từ hiện tại trở đi.'
@@ -159,7 +168,7 @@ export function SearchForm({ loading, onSearch, onLocationChange }: Props) {
   const [locating, setLocating] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   const [showSearchPrompt, setShowSearchPrompt] = useState(false)
-  const [locationStatus, setLocationStatus] = useState('Chưa có vị trí. Hãy bấm “Dùng vị trí của tôi” trước khi tìm.')
+  const [locationStatus, setLocationStatus] = useState('Chưa có vị trí — bấm "Dùng vị trí của tôi" hoặc chọn vị trí mẫu để xếp hạng theo khoảng cách, hoặc tìm luôn không cần vị trí.')
 
   useEffect(() => updateUrl(input), [input])
 
