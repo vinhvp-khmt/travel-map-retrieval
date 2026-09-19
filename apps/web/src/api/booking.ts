@@ -1,6 +1,8 @@
 import { API_BASE_URL } from './config'
 import type { SearchResult } from '../types/search'
 
+type BookablePoi = Pick<SearchResult, 'poiId' | 'name' | 'category' | 'address' | 'latitude' | 'longitude'>
+
 export type BookingResponse = {
   bookingId: string
   poiId: string
@@ -48,7 +50,7 @@ async function request<T>(path: string, token: string, init: RequestInit): Promi
   return response.json()
 }
 
-export async function createExternalBooking(poi: SearchResult, draft: BookingDraft, token: string) {
+export async function createExternalBooking(poi: BookablePoi, draft: BookingDraft, token: string) {
   return request<BookingResponse>('/api/v1/bookings/external', token, {
     method: 'POST',
     body: JSON.stringify({

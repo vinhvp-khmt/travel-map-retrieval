@@ -71,6 +71,31 @@
             <artifactId>spring-boot-starter-webmvc-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Testcontainers: integration test chạy tầng controller HTTP thật trên PostGIS
+             thật (không H2, không mock repository) — bắt được lớp bug mà unit test với mock
+             không thể thấy (ví dụ NOT NULL constraint ở search_log/search_history khi thiếu
+             GPS, chỉ lộ ra khi chạy qua Postgres thật). Version do spring-boot-starter-parent
+             quản lý (BOM), không ghi version thủ công. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers-postgresql</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

@@ -1,4 +1,5 @@
 import { GEOAPIFY_API_KEY } from './config'
+import { distanceMeters } from '../lib/geo'
 import type { SearchInput } from '../types/search'
 
 type GeoapifyFeature = {
@@ -33,16 +34,6 @@ export type AddressSuggestion = {
   distanceMeters: number
 }
 
-function distanceMeters(from: Pick<SearchInput, 'latitude' | 'longitude'>, to: { latitude: number; longitude: number }) {
-  const earthRadiusMeters = 6_371_000
-  const toRadians = (value: number) => value * Math.PI / 180
-  const dLat = toRadians(to.latitude - from.latitude)
-  const dLng = toRadians(to.longitude - from.longitude)
-  const lat1 = toRadians(from.latitude)
-  const lat2 = toRadians(to.latitude)
-  const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
-  return 2 * earthRadiusMeters * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
-}
 
 function toAddressSuggestion(feature: GeoapifyFeature, input: SearchInput): AddressSuggestion | undefined {
   const [longitude, latitude] = feature.geometry?.coordinates ?? [feature.properties?.lon, feature.properties?.lat]

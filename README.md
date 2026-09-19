@@ -56,13 +56,13 @@ cd services/api
 ./mvnw spring-boot:run
 ```
 
-Flyway automatically applies `V1` through `V7`. Verify the API and database:
+Flyway automatically applies `V1` through `V9`. Verify the API and database:
 
 ```bash
 curl http://localhost:8080/api/v1/health
 ```
 
-Seed idempotent local demo data after the schema reaches V7:
+Seed idempotent local demo data (plus the IR dataset) after the schema reaches V9:
 
 ```bash
 ./infra/scripts/seed-demo.sh
@@ -131,6 +131,79 @@ to be deleted.
 
 See `TRAVELMAP_COMPLETION_AUDIT.md` for the distinction between passed pipeline
 gates and remaining product/cloud work.
+
+## IR search, dataset and evaluation
+
+Search does not depend on Geoapify for ranking. The backend builds its own
+inverted index and BM25 scorer over the local POI table, then combines text
+relevance with spatial decay, opening-hours fit and Bayesian-shrunk rating
+into a single `finalScore`. Every result carries a `scoreDetail` (bm25,
+spatial, temporal, rating, finalScore) so ranking can be explained and
+audited, not just trusted.
+
+`GET /api/v1/search` accepts `rankingMode=keyword|distance|full` to run the
+same query through one signal at a time (`keyword` = BM25 only, `distance` =
+spatial only, `full` = all four signals, the default) — useful for comparing
+baselines without a separate UI. `k1`/`b` for BM25 are configurable via
+`travelmap.search.bm25.k1`/`.b` (env: `SEARCH_BM25_K1`, `SEARCH_BM25_B`),
+default 1.2/0.75.
+
+`./infra/scripts/seed-demo.sh` also applies `infra/seed/ir_dataset_seed.sql`:
+45 POI total, designed on purpose (not random) to exercise every ranking
+signal — near-duplicate names (`ABC Coffee`, `ABC Coffee 2`, …), overnight
+opening hours (`18:00`→`02:00` and variants), deliberately skewed
+rating/review counts (5.0/1 review vs 4.5/1000 reviews), and the same
+category spread across 0.3/1/3/8 km from a shared reference point.
+
+Ground truth for evaluation lives at `docs/qrels/ir_dataset_qrels.json` — 14
+queries with graded relevance (0–3) against real, deterministic POI UUIDs
+(reproducible: `md5(seed_key)`), a fixed reference location, and a fixed
+`visitAt` (not server "now") so a rerun always produces the same numbers.
+
+Run the real evaluation (needs the API up and the dataset seeded):
+
+```bash
+services/api/mvnw test -Dtest=IrDatasetEvaluationRunner
+```
+
+This calls the live `GET /api/v1/search` over HTTP for every query × mode,
+computes Precision@5/MAP/NDCG@10 with the same `Metrics` class the unit tests
+use, prints an aggregate + per-query table, and writes
+`outputs/evaluation/results.{json,csv}`. Its class name does not match
+Surefire's default `*Test` pattern, so it is skipped by plain `mvn test`
+(and therefore never needs a live API to pass in CI); it only runs when
+named explicitly as above. Without a live API it self-skips instead of
+failing.
+
+Signed-in users get personal history: `GET/DELETE /api/v1/search/history`
+(deduplicated by query, most recent first) and
+`GET/DELETE /api/v1/users/me/viewed-pois` (recorded via
+`POST /api/v1/pois/{poiId}/view`, since POI detail renders from the search
+result already in memory rather than a separate fetch). The web UI shows
+both as "Tìm kiếm gần đây" and "Địa điểm đã xem" before a search is run.
+
+### Integration tests (Testcontainers)
+
+`SearchApiIT` exercises the search/history/viewed-POI HTTP endpoints end to
+end through `MockMvc` on a real `postgis/postgis:16-3.4` container (Flyway
+V1–V9, no mocked repositories) — this is what caught the `search_log`/
+`search_history` `NOT NULL` regression that a GPS-less search used to hit.
+Like `IrDatasetEvaluationRunner`, its name deliberately avoids Surefire's
+default `*Test` pattern (it's suffixed `IT`, the Maven Failsafe convention)
+so plain `mvn test`/`mvn clean test` never needs Docker. Run it explicitly:
+
+```bash
+docker info >/dev/null 2>&1 || colima start   # any Docker daemon works
+cd services/api && ./mvnw test -Dtest=SearchApiIT
+```
+
+If Docker only listens on a non-default socket (e.g. Colima on macOS),
+export before running:
+
+```bash
+export DOCKER_HOST=unix:///Users/<you>/.colima/default/docker.sock
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+```
 
 ## Foundation commands
 

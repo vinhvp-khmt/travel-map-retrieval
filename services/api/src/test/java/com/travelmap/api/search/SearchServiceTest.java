@@ -85,6 +85,40 @@ class SearchServiceTest {
         assertEquals("Try a broader radius or fewer filters", response.suggestion());
     }
 
+    @Test
+    void searchKhongCoGpsVanChayVaDungCandidateLaMoiPoiActive() {
+        // Phần 2.4: thiếu GPS không được làm search fail. Nhánh này KHÔNG được gọi
+        // findSpatialCandidates (không có toạ độ để truyền) — candidate lấy thẳng từ
+        // findAllByStatus(ACTIVE) đã fetch sẵn cho inverted index.
+        PoiRepository pois = mock(PoiRepository.class);
+        CategoryRepository categories = mock(CategoryRepository.class);
+        SearchLogRepository logs = mock(SearchLogRepository.class);
+        var tokenizer = new SimpleVietnameseTokenizer();
+        PoiEntity cafe = activeCafe();
+        SearchIndexService searchIndex = new SearchIndexService(pois, tokenizer);
+        searchIndex.rebuild(List.of(cafe));
+        SearchService service = new SearchService(pois, categories, logs, tokenizer,
+                new QueryNormalizer(tokenizer), new SearchRequestValidator(), new TemporalFitService(),
+                new RankingService(), new DiversityReranker(new PoiNameNormalizer()), searchIndex);
+        when(pois.findAllByStatus(PoiStatus.ACTIVE)).thenReturn(List.of(cafe));
+
+        var criteria = new SearchCriteria("cà phê", null, null, 2, null, 0, 20, null, null);
+        var response = service.search(criteria);
+
+        assertEquals(1, response.total());
+        assertNull(response.results().getFirst().distanceMeters());
+        assertEquals(0.5, response.results().getFirst().scoreDetail().spatial(), 1e-9);
+        verify(pois, org.mockito.Mockito.never()).findSpatialCandidates(
+                org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyInt());
+        // search_log.latitude/longitude là NOT NULL ở DB thật (mock không tự bắt được điều
+        // này) — chốt luôn ở tầng service: không gọi save() khi thiếu GPS.
+        verify(logs, org.mockito.Mockito.never()).save(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.anyString(),
+                org.mockito.ArgumentMatchers.anyInt());
+    }
+
     private static PoiEntity activeCafe() {
         var owner = new UserEntity("owner@example.com", "hash", UserRole.OWNER);
         var category = new CategoryEntity(UUID.randomUUID(), "Cà phê", "ca-phe");

@@ -15,8 +15,17 @@ export function validateSearchInput(input: SearchInput): Record<string, string> 
   const errors: Record<string, string> = {}
   const queryLength = input.query.trim().length
   if (queryLength < 1 || queryLength > 200) errors.query = 'Nhập từ khóa từ 1 đến 200 ký tự.'
-  if (!Number.isFinite(input.latitude) || input.latitude < -90 || input.latitude > 90) errors.latitude = 'Hãy bấm “Dùng vị trí của tôi” trước khi tìm.'
-  if (!Number.isFinite(input.longitude) || input.longitude < -180 || input.longitude > 180) errors.longitude = 'Hãy bấm “Dùng vị trí của tôi” trước khi tìm.'
+  // GPS là tuỳ chọn — backend chấp nhận thiếu cả hai (search vẫn chạy, chỉ mất tín hiệu
+  // khoảng cách). Chỉ báo lỗi khi: có giá trị nhưng ngoài phạm vi hợp lệ, hoặc có đúng một
+  // trong hai (nửa vời, backend sẽ từ chối) — không còn bắt buộc phải bấm "Dùng vị trí của tôi".
+  const hasLatitude = Number.isFinite(input.latitude)
+  const hasLongitude = Number.isFinite(input.longitude)
+  if (hasLatitude !== hasLongitude) {
+    errors.latitude = 'Cần cả vĩ độ và kinh độ, hoặc để trống cả hai để tìm không theo khoảng cách.'
+  } else if (hasLatitude && hasLongitude) {
+    if (input.latitude < -90 || input.latitude > 90) errors.latitude = 'Vĩ độ không hợp lệ.'
+    if (input.longitude < -180 || input.longitude > 180) errors.longitude = 'Kinh độ không hợp lệ.'
+  }
   if (input.radiusKm < 0.1 || input.radiusKm > 10) errors.radiusKm = 'Thiết lập tìm kiếm không hợp lệ.'
   if (input.visitAt && new Date(input.visitAt).getTime() < Date.now() - 60_000) {
     errors.visitAt = 'Thời gian ghé thăm phải từ hiện tại trở đi.'
@@ -46,6 +55,15 @@ const MIN_PRICE_LIMIT = 1_000
 const MIN_RADIUS_KM = 0.1
 const MAX_RADIUS_KM = 10
 const DEFAULT_RADIUS_KM = 2
+
+// Vị trí mẫu để test nhanh khi không đứng đúng khu vực có dữ liệu (toàn bộ POI seed nằm
+// quanh Quận 1/3, bán kính tìm kiếm tối đa 10km — GPS thật ở xa trung tâm, ví dụ Cần Giờ,
+// sẽ luôn ra 0 kết quả). Toạ độ là tâm gần đúng của mỗi quận.
+const PRESET_LOCATIONS: ReadonlyArray<{ label: string; latitude: number; longitude: number }> = [
+  { label: 'Quận 7', latitude: 10.729, longitude: 106.7019 },
+  { label: 'Quận 2', latitude: 10.7929, longitude: 106.7419 },
+  { label: 'Quận 3', latitude: 10.7822, longitude: 106.6889 },
+]
 
 const spaceOptions: Array<{ value: CoffeeSpace; label: string }> = [
   { value: 'indoor', label: 'Indoor' },
@@ -150,7 +168,7 @@ export function SearchForm({ loading, onSearch, onLocationChange }: Props) {
   const [locating, setLocating] = useState(false)
   const [filterOpen, setFilterOpen] = useState(false)
   const [showSearchPrompt, setShowSearchPrompt] = useState(false)
-  const [locationStatus, setLocationStatus] = useState('Chưa có vị trí. Hãy bấm “Dùng vị trí của tôi” trước khi tìm.')
+  const [locationStatus, setLocationStatus] = useState('Chưa có vị trí — bấm "Dùng vị trí của tôi" hoặc chọn vị trí mẫu để xếp hạng theo khoảng cách, hoặc tìm luôn không cần vị trí.')
 
   useEffect(() => updateUrl(input), [input])
 
@@ -270,6 +288,19 @@ export function SearchForm({ loading, onSearch, onLocationChange }: Props) {
     )
   }
 
+  function selectPresetLocation(preset: (typeof PRESET_LOCATIONS)[number]) {
+    const nextLocation = { latitude: preset.latitude, longitude: preset.longitude }
+    const nextInput = { ...input, latitude: String(preset.latitude), longitude: String(preset.longitude) }
+    setInput(nextInput)
+    setErrors({})
+    onLocationChange?.(nextLocation)
+    setLocationStatus(`Đang dùng vị trí mẫu: ${preset.label}.`)
+    if (nextInput.query.trim()) {
+      setShowSearchPrompt(false)
+      onSearch(toSearchInput(nextInput))
+    }
+  }
+
   return (
     <Card className="overflow-hidden border-primary/10 bg-card/95 shadow-xl">
       <CardContent className="p-0">
@@ -299,6 +330,14 @@ export function SearchForm({ loading, onSearch, onLocationChange }: Props) {
         {!loading && <Search className="h-4 w-4" />}
         {loading ? 'Đang tìm…' : 'Tìm quán'}
       </Button>
+      <div className="col-span-full flex flex-wrap items-center gap-2 bg-card px-4 py-2" aria-label="Vị trí mẫu để test nhanh">
+        <span className="text-xs text-muted-foreground">Hoặc test nhanh với vị trí mẫu:</span>
+        {PRESET_LOCATIONS.map((preset) => (
+          <Button key={preset.label} type="button" size="sm" variant="outline" className="h-7 rounded-full px-3 text-xs" disabled={loading} onClick={() => selectPresetLocation(preset)}>
+            {preset.label}
+          </Button>
+        ))}
+      </div>
       {activeTags.length > 0 && (
         <div className="col-span-full flex flex-wrap gap-2 bg-card px-4 py-3" aria-label="Bộ lọc đang chọn">
           {activeTags.map((tag) => (

@@ -13,6 +13,7 @@ import com.travelmap.api.search.model.SearchCriteria;
 import com.travelmap.api.search.model.WeightProfile;
 import com.travelmap.api.search.repository.SearchLogRepository;
 import com.travelmap.api.search.validation.SearchRequestValidator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,12 +40,20 @@ public class SearchService {
     private final RankingService rankingService;
     private final DiversityReranker diversityReranker;
     private final SearchIndexService searchIndexService;
+    private final BM25Scorer bm25Scorer;
 
+    /**
+     * Constructor chính, được Spring dùng: {@code searchIndexService} giữ snapshot inverted
+     * index dùng chung (rebuild atomically khi POI đổi), còn {@code bm25Scorer} lấy từ context
+     * nên k1/b đọc đúng config ({@code travelmap.search.bm25.*}) thay vì hằng số mặc định.
+     */
+    @Autowired
     public SearchService(PoiRepository poiRepository, CategoryRepository categoryRepository,
                          SearchLogRepository searchLogRepository, VietnameseTokenizer tokenizer,
                          QueryNormalizer queryNormalizer, SearchRequestValidator validator,
                          TemporalFitService temporalFitService, RankingService rankingService,
-                         DiversityReranker diversityReranker, SearchIndexService searchIndexService) {
+                         DiversityReranker diversityReranker, SearchIndexService searchIndexService,
+                         BM25Scorer bm25Scorer) {
         this.poiRepository = poiRepository;
         this.categoryRepository = categoryRepository;
         this.searchLogRepository = searchLogRepository;
@@ -55,6 +64,23 @@ public class SearchService {
         this.rankingService = rankingService;
         this.diversityReranker = diversityReranker;
         this.searchIndexService = searchIndexService;
+        this.bm25Scorer = bm25Scorer;
+    }
+
+    /**
+     * Constructor tương thích ngược 10 tham số (không có {@code bm25Scorer}): dùng
+     * {@code BM25Scorer} mặc định (k1=1.2, b=0.75). Giữ lại để {@code SearchServiceTest} và
+     * {@code IrEvaluationTest} — dựng {@code SearchService} bằng tay, không qua Spring —
+     * tiếp tục biên dịch và chạy nguyên vẹn.
+     */
+    public SearchService(PoiRepository poiRepository, CategoryRepository categoryRepository,
+                         SearchLogRepository searchLogRepository, VietnameseTokenizer tokenizer,
+                         QueryNormalizer queryNormalizer, SearchRequestValidator validator,
+                         TemporalFitService temporalFitService, RankingService rankingService,
+                         DiversityReranker diversityReranker, SearchIndexService searchIndexService) {
+        this(poiRepository, categoryRepository, searchLogRepository, tokenizer, queryNormalizer,
+                validator, temporalFitService, rankingService, diversityReranker, searchIndexService,
+                new BM25Scorer());
     }
 
     @Transactional
@@ -67,7 +93,6 @@ public class SearchService {
         List<String> queryTerms = tokenizer.tokenize(criteria.query());
         List<PoiEntity> activePois = poiRepository.findAllByStatus(PoiStatus.ACTIVE);
         InvertedIndex index = searchIndexService.snapshot();
-        BM25Scorer bm25Scorer = new BM25Scorer();
 
         // Prior cho công thức rating shrinkage (V2): điểm sao trung bình toàn hệ thống,
         // chỉ tính trên các quán đã có ít nhất một lượt đánh giá.
@@ -77,27 +102,42 @@ public class SearchService {
                 .average()
                 .orElse(DEFAULT_GLOBAL_MEAN_RATING);
 
-        List<SpatialCandidateProjection> spatial = poiRepository.findSpatialCandidates(
-                criteria.latitude(), criteria.longitude(), criteria.radiusKm() * 1000,
-                criteria.categoryId(), criteria.priceLevel(), CANDIDATE_LIMIT);
+        // Phần 2.4: GPS là tuỳ chọn. Có toạ độ thì dùng đúng đường cũ (PostGIS lọc + tính
+        // khoảng cách thật). Không có thì lấy toàn bộ POI ACTIVE làm candidate (lọc thủ công
+        // theo category/priceLevel cho khớp PostGIS), distance = null cho mọi kết quả —
+        // RankingService sẽ tự dùng spatial score trung lập, search vẫn chạy bình thường.
         Map<UUID, Double> distances = new HashMap<>();
-        spatial.forEach(item -> distances.put(item.getId(), item.getDistanceMeters()));
         Map<UUID, PoiEntity> entities = new HashMap<>();
-        poiRepository.findAllByIdIn(spatial.stream().map(SpatialCandidateProjection::getId).toList())
-                .forEach(poi -> entities.put(poi.getId(), poi));
+        List<UUID> candidateIds;
+        if (criteria.hasLocation()) {
+            List<SpatialCandidateProjection> spatial = poiRepository.findSpatialCandidates(
+                    criteria.latitude(), criteria.longitude(), criteria.radiusKm() * 1000,
+                    criteria.categoryId(), criteria.priceLevel(), CANDIDATE_LIMIT);
+            spatial.forEach(item -> distances.put(item.getId(), item.getDistanceMeters()));
+            candidateIds = spatial.stream().map(SpatialCandidateProjection::getId).toList();
+            poiRepository.findAllByIdIn(candidateIds).forEach(poi -> entities.put(poi.getId(), poi));
+        } else {
+            List<PoiEntity> withoutLocation = activePois.stream()
+                    .filter(poi -> criteria.categoryId() == null || criteria.categoryId().equals(poi.getCategory().getId()))
+                    .filter(poi -> criteria.priceLevel() == null || criteria.priceLevel().equals(poi.getPriceLevel()))
+                    .limit(CANDIDATE_LIMIT)
+                    .toList();
+            withoutLocation.forEach(poi -> entities.put(poi.getId(), poi));
+            candidateIds = withoutLocation.stream().map(PoiEntity::getId).toList();
+        }
 
         Map<UUID, Double> rawScores = new HashMap<>();
-        distances.keySet().forEach(id -> rawScores.put(id, bm25Scorer.score(index, id, queryTerms)));
+        candidateIds.forEach(id -> rawScores.put(id, bm25Scorer.score(index, id, queryTerms)));
         double maxBm25 = rawScores.values().stream().mapToDouble(Double::doubleValue).max().orElse(0);
         OffsetDateTime visitAt = criteria.visitAt() == null ? OffsetDateTime.now() : criteria.visitAt();
         double radiusMeters = criteria.radiusKm() * 1000;
         WeightProfile profile = criteria.profile();
 
-        List<SearchResult> ranked = spatial.stream()
-                .filter(candidate -> entities.containsKey(candidate.getId()))
-                .filter(candidate -> rawScores.getOrDefault(candidate.getId(), 0.0) > 0)
-                .map(candidate -> toResult(entities.get(candidate.getId()), candidate.getDistanceMeters(),
-                        rawScores.getOrDefault(candidate.getId(), 0.0), maxBm25, radiusMeters, visitAt,
+        List<SearchResult> ranked = candidateIds.stream()
+                .filter(entities::containsKey)
+                .filter(id -> rawScores.getOrDefault(id, 0.0) > 0)
+                .map(id -> toResult(entities.get(id), distances.get(id),
+                        rawScores.getOrDefault(id, 0.0), maxBm25, radiusMeters, visitAt,
                         profile, globalMeanRating))
                 .sorted((left, right) -> {
                     int scoreOrder = Double.compare(right.scoreDetail().finalScore(), left.scoreDetail().finalScore());
@@ -121,19 +161,24 @@ public class SearchService {
         int from = Math.min(criteria.page() * criteria.size(), ranked.size());
         int to = Math.min(from + criteria.size(), ranked.size());
         List<SearchResult> page = ranked.subList(from, to);
-        searchLogRepository.save(criteria, normalizedQuery, ranked.size());
+        // search_log.latitude/longitude là NOT NULL (V3, log ẩn danh cho analytics) — bỏ
+        // qua ghi log cho lượt search không GPS thay vì đổi schema hay NPE khi unbox.
+        if (criteria.hasLocation()) {
+            searchLogRepository.save(criteria, normalizedQuery, ranked.size());
+        }
         String suggestion = ranked.isEmpty() ? "Try a broader radius or fewer filters" : null;
         return new SearchResponse(normalizedQuery, criteria.page(), criteria.size(), ranked.size(), page, suggestion,
                 profile.apiName());
     }
 
-    private SearchResult toResult(PoiEntity poi, double distance, double rawBm25, double maxBm25,
+    private SearchResult toResult(PoiEntity poi, Double distance, double rawBm25, double maxBm25,
                                   double radiusMeters, OffsetDateTime visitAt,
                                   WeightProfile profile, double globalMeanRating) {
         TemporalFitService.TemporalFit temporal = temporalFitService.evaluate(poi, visitAt);
         ScoreDetail score = rankingService.score(profile, rawBm25, maxBm25, distance, radiusMeters,
                 temporal.score(), poi.getAvgRating().doubleValue(), poi.getRatingCount(), globalMeanRating);
+        Double roundedDistance = distance == null ? null : Math.round(distance * 10.0) / 10.0;
         return new SearchResult(poi.getId(), poi.getName(), poi.getCategory().getName(), poi.getAddress(),
-                poi.getLatitude(), poi.getLongitude(), Math.round(distance * 10.0) / 10.0, temporal.open(), score);
+                poi.getLatitude(), poi.getLongitude(), roundedDistance, temporal.open(), score);
     }
 }

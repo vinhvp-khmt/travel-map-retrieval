@@ -20,14 +20,21 @@ describe('SearchForm', () => {
     expect(search).not.toHaveBeenCalled()
   })
 
-  it('requires a real location before searching', () => {
+  it('searches without GPS when no location was ever provided (không bắt buộc phải có vị trí)', () => {
     const search = vi.fn()
     render(<SearchForm loading={false} onSearch={search} />)
     fireEvent.change(screen.getByLabelText('Bạn muốn quán coffee kiểu nào?'), { target: { value: 'cà phê' } })
     fireEvent.click(screen.getByRole('button', { name: 'Tìm quán' }))
-    expect(screen.getByText(/Hãy bấm “Dùng vị trí của tôi” trước khi tìm/)).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Tìm kiếm ngay' })).not.toBeInTheDocument()
-    expect(search).not.toHaveBeenCalled()
+    expect(search).toHaveBeenCalledTimes(1)
+    const calledInput = search.mock.calls[0][0]
+    expect(calledInput.query).toBe('cà phê')
+    expect(Number.isFinite(calledInput.latitude)).toBe(false)
+    expect(Number.isFinite(calledInput.longitude)).toBe(false)
+  })
+
+  it('rejects half-provided GPS (chỉ có vĩ độ hoặc chỉ có kinh độ)', () => {
+    expect(validateSearchInput({ query: 'cafe', latitude: 10, longitude: Number.NaN, radiusKm: 2 }))
+      .toHaveProperty('latitude')
   })
 
   it('uses browser GPS coordinates and searches around the current position', async () => {

@@ -109,6 +109,43 @@ paths:
               schema: { $ref: '#/components/schemas/PoiResponse' }
         '404':
           description: POI does not exist or is not active
+  /api/v1/pois/{poiId}/view:
+    post:
+      tags: [POI]
+      summary: Record that the authenticated user opened this POI's detail (for "recently viewed")
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: poiId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: View recorded }
+        '404': { description: POI does not exist }
+  /api/v1/users/me/viewed-pois:
+    get:
+      tags: [POI]
+      summary: List POIs the authenticated user has viewed (most recent first)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 10, minimum: 1 } }
+      responses:
+        '200':
+          description: Recently viewed POIs
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/ViewedPoiItem' } }
+    delete:
+      tags: [POI]
+      summary: Clear all of the authenticated user's viewed-POI history
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Viewed-POI history cleared }
+  /api/v1/users/me/viewed-pois/{poiId}:
+    delete:
+      tags: [POI]
+      summary: Remove a single POI from viewed history
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: poiId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '204': { description: Viewed-POI entry removed }
   /api/v1/owner/pois:
     get:
       tags: [POI]
@@ -192,21 +229,50 @@ paths:
       summary: Search active POIs by text, location and visit time
       parameters:
         - { name: q, in: query, required: true, schema: { type: string, minLength: 1, maxLength: 200 } }
-        - { name: latitude, in: query, required: true, schema: { type: number, minimum: -90, maximum: 90 } }
-        - { name: longitude, in: query, required: true, schema: { type: number, minimum: -180, maximum: 180 } }
-        - { name: radiusKm, in: query, schema: { type: number, default: 2, minimum: 0.1, maximum: 10 } }
+        - { name: latitude, in: query, description: "Optional — omit both latitude and longitude to search without a spatial signal (distanceMeters comes back null, spatial score is neutral). Must be provided together with longitude.", schema: { type: number, minimum: -90, maximum: 90 } }
+        - { name: longitude, in: query, description: "Optional, see latitude.", schema: { type: number, minimum: -180, maximum: 180 } }
+        - { name: radiusKm, in: query, description: "Ignored when latitude/longitude are omitted.", schema: { type: number, default: 2, minimum: 0.1, maximum: 10 } }
         - { name: visitAt, in: query, description: ISO-8601 timestamp with timezone; defaults to now, schema: { type: string, format: date-time } }
         - { name: page, in: query, schema: { type: integer, default: 0, minimum: 0 } }
         - { name: size, in: query, schema: { type: integer, default: 20, minimum: 1, maximum: 50 } }
         - { name: priceLevel, in: query, schema: { type: integer, minimum: 1, maximum: 4 } }
         - { name: categoryId, in: query, schema: { type: string, format: uuid } }
+        - { name: rankingMode, in: query, description: "keyword=BM25 only, distance=spatial only, full=all signals (default)", schema: { type: string, enum: [keyword, distance, full] } }
+        - { name: diversify, in: query, schema: { type: boolean, default: true } }
       responses:
         '200':
-          description: Ranked, paginated POIs with explainable score details
+          description: Ranked, paginated POIs with explainable score details. When the caller is authenticated, the query is also recorded to search history.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SearchResponse' }
         '400': { $ref: '#/components/responses/ValidationError' }
+  /api/v1/search/history:
+    get:
+      tags: [Search]
+      summary: List the authenticated user's recent searches (most recent first, deduplicated by query)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: limit, in: query, schema: { type: integer, default: 10, minimum: 1 } }
+      responses:
+        '200':
+          description: Recent search history
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/SearchHistoryItem' } }
+    delete:
+      tags: [Search]
+      summary: Clear all of the authenticated user's search history
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Search history cleared }
+  /api/v1/search/history/{historyId}:
+    delete:
+      tags: [Search]
+      summary: Remove a single search history entry
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: historyId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '204': { description: Search history entry removed }
   /api/v1/pois/{poiId}/availability:
     get:
       tags: [Booking]
@@ -451,7 +517,7 @@ components:
         address: { type: string }
         latitude: { type: number }
         longitude: { type: number }
-        distanceMeters: { type: number }
+        distanceMeters: { type: number, nullable: true, description: "null when the search request had no latitude/longitude." }
         open: { type: boolean }
         scoreDetail: { $ref: '#/components/schemas/ScoreDetail' }
     SearchResponse:
@@ -465,6 +531,28 @@ components:
           type: array
           items: { $ref: '#/components/schemas/SearchResult' }
         suggestion: { type: string, nullable: true }
+    SearchHistoryItem:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        query: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        radiusKm: { type: number }
+        resultCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+    ViewedPoiItem:
+      type: object
+      properties:
+        poiId: { type: string, format: uuid }
+        name: { type: string }
+        category: { type: string }
+        address: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        avgRating: { type: number }
+        ratingCount: { type: integer }
+        viewedAt: { type: string, format: date-time }
     CreateBookingRequest:
       type: object
       required: [poiId, visitAt, partySize]

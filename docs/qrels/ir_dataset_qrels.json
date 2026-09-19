@@ -1,0 +1,166 @@
+{
+  "_comment": "Ground truth (qrels) cho IR dataset seed (infra/seed/ir_dataset_seed.sql + demo_seed.sql). poiId là UUID thật, tất định (md5(seed_key)), nên tái tạo giống nhau ở mọi môi trường sau khi chạy ./infra/scripts/seed-demo.sh. Graded relevance: 0=khong lien quan, 1=it lien quan, 2=lien quan, 3=rat lien quan. Gan nhan theo do khop VAN BAN (text relevance) cua POI voi truy van — day la muc do 'topic phu hop', doc lap voi khoang cach/gio mo cua/rating cua NGUOI DUNG CU THE tai THOI DIEM CU THE (nhung tin hieu do da co feature rieng trong ranking, va se tu nhien lam finalScore/NDCG cua tung profile khac nhau tuy vi tri + visitAt dung de chay evaluation — day la ket qua that, khong phai loi). visitAt co dinh (khong dung server 'now') de moi lan chay evaluation deu ra CUNG mot con so, dung yeu cau 'qrels phai reproducible'.",
+  "referenceLatitude": 10.7769,
+  "referenceLongitude": 106.7009,
+  "radiusKm": 10,
+  "visitAt": "2026-09-19T19:30:00+07:00",
+  "queries": [
+    {
+      "queryId": "Q01",
+      "query": "cà phê học bài",
+      "relevance": {
+        "f8bd2a1a-525a-60f8-e85e-b5ab316cc899": 3,
+        "c8e7e9b7-f865-0caf-dab2-a6d2cbe9ccb9": 3,
+        "d6e3256a-d9e1-27ff-474a-35bfe19df0c8": 3,
+        "27868d42-c479-3bc9-4bf3-472e1ee9ecfa": 3,
+        "55561c81-f320-239d-5b6e-773e5866456f": 2,
+        "03523d36-b38a-54ad-445c-339def5fd313": 1,
+        "dcab3f56-26ca-f794-a528-80f4c9258362": 1
+      }
+    },
+    {
+      "queryId": "Q02",
+      "query": "coffee làm việc",
+      "relevance": {
+        "03523d36-b38a-54ad-445c-339def5fd313": 3,
+        "dcab3f56-26ca-f794-a528-80f4c9258362": 3,
+        "20a29661-2a74-22cd-6c87-5d525eeb0abe": 2,
+        "9e911109-9315-0697-bc21-2a391382b343": 2,
+        "ab46148b-74ca-1740-1994-7bb87168d6da": 2,
+        "99390f43-c7a2-7ae7-4686-50e33fa39874": 2,
+        "c8e7e9b7-f865-0caf-dab2-a6d2cbe9ccb9": 1,
+        "f8bd2a1a-525a-60f8-e85e-b5ab316cc899": 1
+      }
+    },
+    {
+      "queryId": "Q03",
+      "query": "quán mở khuya",
+      "relevance": {
+        "268a23e7-7c60-00f7-b082-c080d9393c66": 3,
+        "20a29661-2a74-22cd-6c87-5d525eeb0abe": 3,
+        "a2705a24-1e16-13e2-3f5a-bad2a1152041": 3,
+        "e95415cc-7917-c68c-5835-1bd6d646171b": 3,
+        "4fad3360-6e9f-a0f9-6b65-933f8f522c01": 3,
+        "e0f50f06-902d-9f6a-bf56-ccb952b6da79": 3,
+        "72d886b0-6762-c3d9-0168-53a8b38e94c3": 1
+      }
+    },
+    {
+      "queryId": "Q04",
+      "query": "quán cà phê yên tĩnh",
+      "relevance": {
+        "f8bd2a1a-525a-60f8-e85e-b5ab316cc899": 3,
+        "c8e7e9b7-f865-0caf-dab2-a6d2cbe9ccb9": 3,
+        "2c4b831a-5bf0-de86-98bc-9a9b30178ad9": 3,
+        "99390f43-c7a2-7ae7-4686-50e33fa39874": 3,
+        "d6e3256a-d9e1-27ff-474a-35bfe19df0c8": 3,
+        "27868d42-c479-3bc9-4bf3-472e1ee9ecfa": 3,
+        "cbd0c49e-ce4c-8d45-da47-7029084a87f5": 2,
+        "d96ef184-f965-cd41-59f3-302cbdf2ce13": 2,
+        "55561c81-f320-239d-5b6e-773e5866456f": 2
+      }
+    },
+    {
+      "queryId": "Q05",
+      "query": "quán ăn gia đình",
+      "relevance": {
+        "ec105837-b075-70b7-4345-b6f4d6dcb628": 3,
+        "3f4c8104-91fa-6417-21d2-e6a7d691bf1c": 3,
+        "2c8c5509-372d-5413-b7ea-1b69cfed08c8": 3,
+        "b99b2c5d-aeac-0260-57e1-fca5e8e4534e": 3,
+        "556cf077-31bf-21df-1472-d7f83f5f6bca": 2,
+        "8a4f27bf-3733-b205-8f95-4307b5a11b1e": 1
+      }
+    },
+    {
+      "queryId": "Q06",
+      "query": "ăn sáng",
+      "relevance": {
+        "556cf077-31bf-21df-1472-d7f83f5f6bca": 3,
+        "ad7aab44-8bfd-f6da-7983-5db0f65a9d76": 3,
+        "b23b4470-e6e6-bd48-0b3f-5602f4603053": 2,
+        "8a4f27bf-3733-b205-8f95-4307b5a11b1e": 2
+      }
+    },
+    {
+      "queryId": "Q07",
+      "query": "ăn tối",
+      "relevance": {
+        "a2705a24-1e16-13e2-3f5a-bad2a1152041": 3,
+        "3f4c8104-91fa-6417-21d2-e6a7d691bf1c": 3,
+        "4fad3360-6e9f-a0f9-6b65-933f8f522c01": 3,
+        "e0f50f06-902d-9f6a-bf56-ccb952b6da79": 3,
+        "b99b2c5d-aeac-0260-57e1-fca5e8e4534e": 2,
+        "b23b4470-e6e6-bd48-0b3f-5602f4603053": 1
+      }
+    },
+    {
+      "queryId": "Q08",
+      "query": "take away",
+      "relevance": {
+        "268a23e7-7c60-00f7-b082-c080d9393c66": 3,
+        "b23b4470-e6e6-bd48-0b3f-5602f4603053": 3,
+        "e95415cc-7917-c68c-5835-1bd6d646171b": 3,
+        "3f4c8104-91fa-6417-21d2-e6a7d691bf1c": 2
+      }
+    },
+    {
+      "queryId": "Q09",
+      "query": "cà phê wifi ổ cắm",
+      "relevance": {
+        "f8bd2a1a-525a-60f8-e85e-b5ab316cc899": 3,
+        "c8e7e9b7-f865-0caf-dab2-a6d2cbe9ccb9": 3,
+        "03523d36-b38a-54ad-445c-339def5fd313": 3,
+        "9e911109-9315-0697-bc21-2a391382b343": 2
+      }
+    },
+    {
+      "queryId": "Q10",
+      "query": "cà phê gần trung tâm",
+      "relevance": {
+        "99390f43-c7a2-7ae7-4686-50e33fa39874": 3,
+        "ab46148b-74ca-1740-1994-7bb87168d6da": 2,
+        "70b7066d-f393-fe91-bce3-2af40d14190d": 1,
+        "cbd0c49e-ce4c-8d45-da47-7029084a87f5": 1
+      }
+    },
+    {
+      "queryId": "Q11",
+      "query": "khách sạn yên tĩnh",
+      "relevance": {
+        "ddb128a8-dbf7-03a7-10fe-868e9c3fef3e": 3,
+        "79090a91-2f71-cb5c-8826-6be77c242e2b": 2,
+        "a1155951-dfb8-e1ef-8818-24dd5fea3352": 1,
+        "f72070a9-c3db-18e6-ba46-1f1c016256da": 1
+      }
+    },
+    {
+      "queryId": "Q12",
+      "query": "công viên gia đình",
+      "relevance": {
+        "955fb57d-0fd3-4905-87ce-1e367d0d5cb8": 3,
+        "20ccef9c-75b0-8369-4d3c-7828e96e255f": 3,
+        "9b4beac9-ffe6-d715-ee19-ed842d0ea1d8": 1
+      }
+    },
+    {
+      "queryId": "Q13",
+      "query": "rating cao nhiều đánh giá",
+      "relevance": {
+        "2c8c5509-372d-5413-b7ea-1b69cfed08c8": 3,
+        "9e911109-9315-0697-bc21-2a391382b343": 3,
+        "b99b2c5d-aeac-0260-57e1-fca5e8e4534e": 3,
+        "d96ef184-f965-cd41-59f3-302cbdf2ce13": 1
+      }
+    },
+    {
+      "queryId": "Q14",
+      "query": "quán cà phê sách",
+      "relevance": {
+        "55561c81-f320-239d-5b6e-773e5866456f": 3,
+        "d6e3256a-d9e1-27ff-474a-35bfe19df0c8": 3,
+        "27868d42-c479-3bc9-4bf3-472e1ee9ecfa": 3
+      }
+    }
+  ]
+}

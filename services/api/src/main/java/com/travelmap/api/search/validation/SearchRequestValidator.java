@@ -12,8 +12,14 @@ public class SearchRequestValidator {
     public void validate(SearchCriteria criteria) {
         if (criteria.query() == null || criteria.query().trim().isEmpty() || criteria.query().trim().length() > 200)
             invalid("query must contain 1 to 200 characters");
-        if (criteria.latitude() < -90 || criteria.latitude() > 90) invalid("latitude must be between -90 and 90");
-        if (criteria.longitude() < -180 || criteria.longitude() > 180) invalid("longitude must be between -180 and 180");
+        // Phase 2.4: GPS là tuỳ chọn — thiếu cả hai thì bỏ qua tín hiệu khoảng cách thay vì
+        // chặn request; nhưng nếu CÓ truyền thì vẫn phải hợp lệ, và phải truyền đủ cặp.
+        if (criteria.hasLocation()) {
+            if (criteria.latitude() < -90 || criteria.latitude() > 90) invalid("latitude must be between -90 and 90");
+            if (criteria.longitude() < -180 || criteria.longitude() > 180) invalid("longitude must be between -180 and 180");
+        } else if (criteria.latitude() != null || criteria.longitude() != null) {
+            invalid("latitude and longitude must both be present or both be absent");
+        }
         if (criteria.radiusKm() < 0.1 || criteria.radiusKm() > 10) invalid("radiusKm must be between 0.1 and 10");
         if (criteria.page() < 0) invalid("page must be at least 0");
         if (criteria.size() < 1 || criteria.size() > 50) invalid("size must be between 1 and 50");
