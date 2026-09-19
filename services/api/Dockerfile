@@ -1,10 +1,10 @@
-FROM maven:3.9.11-eclipse-temurin-21 AS build
+FROM maven:3.9.11-eclipse-temurin-25 AS build
 WORKDIR /workspace
 COPY services/api/pom.xml .
 COPY services/api/src src
 RUN mvn --batch-mode -DskipTests package
 
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 RUN useradd --system --uid 10001 travelmap
 WORKDIR /app
 COPY --from=build /workspace/target/travelmap-api-*.jar app.jar
