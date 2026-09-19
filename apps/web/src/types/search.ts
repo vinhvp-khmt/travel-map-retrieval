@@ -52,3 +52,27 @@ export type UserLocation = {
   longitude: number
   accuracyMeters?: number
 }
+
+/** Một mục "tìm kiếm gần đây" — khớp SearchHistoryItem phía backend. */
+export type SearchHistoryItem = {
+  id: string
+  query: string
+  latitude: number
+  longitude: number
+  radiusKm: number
+  resultCount: number
+  createdAt: string
+}
+
+/** Một POI đã xem — khớp ViewedPoiItem phía backend. */
+export type ViewedPoiItem = {
+  poiId: string
+  name: string
+  category: string
+  address: string
+  latitude: number
+  longitude: number
+  avgRating: number
+  ratingCount: number
+  viewedAt: string
+}

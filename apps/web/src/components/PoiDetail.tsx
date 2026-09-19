@@ -25,7 +25,16 @@ function money(amount: number, currency: string) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency }).format(amount)
 }
 
-export function PoiDetail({ poi, token, onClose }: { poi: SearchResult; token?: string; onClose: () => void }) {
+/**
+ * POI mở từ một lượt search thật có đủ scoreDetail/distanceMeters/open. POI mở từ
+ * "Địa điểm đã xem" (lịch sử) thì không — dữ liệu đó chỉ là snapshot cũ, không phải kết quả
+ * ranking sống, nên không có căn cứ để hiện điểm số hay trạng thái mở cửa. Nới ba trường này
+ * thành optional để tái dùng đúng một component cho cả hai nguồn, thay vì tạo bản sao.
+ */
+export type PoiDetailSubject = Pick<SearchResult, 'poiId' | 'name' | 'category' | 'address' | 'latitude' | 'longitude'>
+  & Partial<Pick<SearchResult, 'distanceMeters' | 'open' | 'scoreDetail'>>
+
+export function PoiDetail({ poi, token, onClose }: { poi: PoiDetailSubject; token?: string; onClose: () => void }) {
   const [visitAt, setVisitAt] = useState(defaultVisitAt)
   const [partySize, setPartySize] = useState(2)
   const [notes, setNotes] = useState('')
@@ -73,11 +82,11 @@ export function PoiDetail({ poi, token, onClose }: { poi: SearchResult; token?: 
           <SheetDescription className="flex gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0" />{poi.address}</SheetDescription>
         </SheetHeader>
         <div className="grid gap-4 px-6 pb-6">
-      <div className="flex flex-wrap gap-2">
-        <Badge variant="secondary">{Math.round(poi.distanceMeters)} m</Badge>
-        <Badge variant={poi.open ? 'default' : 'destructive'}>{poi.open ? 'Đang mở cửa' : 'Đang đóng cửa'}</Badge>
-      </div>
-      <ScoreBreakdown score={poi.scoreDetail} />
+      {(poi.distanceMeters !== undefined || poi.open !== undefined) && <div className="flex flex-wrap gap-2">
+        {poi.distanceMeters !== undefined && <Badge variant="secondary">{Math.round(poi.distanceMeters)} m</Badge>}
+        {poi.open !== undefined && <Badge variant={poi.open ? 'default' : 'destructive'}>{poi.open ? 'Đang mở cửa' : 'Đang đóng cửa'}</Badge>}
+      </div>}
+      {poi.scoreDetail && <ScoreBreakdown score={poi.scoreDetail} />}
       <Separator />
       <section className="grid gap-3" aria-label="Đặt chỗ">
         <div>

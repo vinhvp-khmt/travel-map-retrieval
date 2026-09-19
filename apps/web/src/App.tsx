@@ -1,13 +1,15 @@
-import { useCallback, useRef, useState } from 'react'
-import { AlertCircle, Coffee, Compass, LogOut, MapPinned, Navigation, UserRound } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { AlertCircle, Coffee, Compass, Eye, History, LogOut, MapPinned, Navigation, UserRound } from 'lucide-react'
 import { searchPois } from './api/search'
 import { MapView } from './components/MapView'
-import { PoiDetail } from './components/PoiDetail'
+import { PoiDetail, type PoiDetailSubject } from './components/PoiDetail'
 import { SearchForm } from './components/SearchForm'
 import { AuthModal } from './components/AuthModal'
 import { logout, type AuthSession } from './api/auth'
+import { fetchSearchHistory, fetchViewedPois, recordPoiView } from './api/history'
+import { distanceMeters } from './lib/geo'
 import { useMobile } from './hooks/useMobile'
-import type { SearchInput, SearchResponse, SearchResult, UserLocation } from './types/search'
+import type { SearchHistoryItem, SearchInput, SearchResponse, UserLocation, ViewedPoiItem } from './types/search'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,7 +24,7 @@ const PAGE_SIZE = 10
 function App() {
   const isMobile = useMobile()
   const [data, setData] = useState<SearchResponse>(EMPTY)
-  const [selected, setSelected] = useState<SearchResult>()
+  const [selected, setSelected] = useState<PoiDetailSubject>()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>()
   const [userLocation, setUserLocation] = useState<UserLocation>()
@@ -34,6 +36,16 @@ function App() {
     try { return JSON.parse(sessionStorage.getItem('travelmap.session') ?? 'null') ?? undefined }
     catch { return undefined }
   })
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([])
+  const [viewedPois, setViewedPois] = useState<ViewedPoiItem[]>([])
+
+  // Phase 6/7: nạp "tìm kiếm gần đây" + "địa điểm đã xem" khi đăng nhập (và mỗi khi đổi
+  // tài khoản). Lỗi mạng ở đây không nên chặn phần còn lại của trang — chỉ để danh sách rỗng.
+  useEffect(() => {
+    if (!session) return
+    fetchSearchHistory(session.accessToken).then(setSearchHistory).catch(() => undefined)
+    fetchViewedPois(session.accessToken).then(setViewedPois).catch(() => undefined)
+  }, [session])
 
   function authenticated(next: AuthSession) {
     sessionStorage.setItem('travelmap.session', JSON.stringify(next)); setSession(next); setShowAuth(false)
@@ -44,6 +56,7 @@ function App() {
     try {
       if (session) await logout(session.refreshToken).catch(() => undefined)
       sessionStorage.removeItem('travelmap.session'); setSession(undefined)
+      setSearchHistory([]); setViewedPois([])
     } finally {
       setLogoutLoading(false)
     }
@@ -56,12 +69,38 @@ function App() {
     setLoading(true); setError(undefined); setSelected(undefined); setCurrentPage(0)
     try {
       setData(await searchPois(input, abortRef.current.signal))
+      // Backend tự ghi lịch sử khi request có token; nạp lại danh sách để "Tìm kiếm gần
+      // đây" phản ánh đúng ngay, không cần tải lại trang.
+      if (session) fetchSearchHistory(session.accessToken).then(setSearchHistory).catch(() => undefined)
     }
     catch (reason) { if ((reason as Error).name !== 'AbortError') setError((reason as Error).message) }
     finally { setLoading(false) }
   }
 
-  const selectPoi = useCallback((poi: SearchResult) => setSelected(poi), [])
+  /** Bấm một mục "Tìm kiếm gần đây" thì search lại đúng truy vấn + vị trí đã lưu. */
+  function searchFromHistory(item: SearchHistoryItem) {
+    search({ query: item.query, latitude: item.latitude, longitude: item.longitude, radiusKm: item.radiusKm })
+  }
+
+  const selectPoi = useCallback((poi: PoiDetailSubject) => {
+    setSelected(poi)
+    if (!session) return
+    // Fire-and-forget: ghi nhận "đã xem" không được làm chậm hay làm hỏng việc mở chi tiết.
+    recordPoiView(poi.poiId, session.accessToken)
+      .then(() => fetchViewedPois(session.accessToken))
+      .then(setViewedPois)
+      .catch(() => undefined)
+  }, [session])
+
+  /** Bấm một mục "Địa điểm đã xem" thì mở lại chi tiết POI đó (không có scoreDetail/open vì
+   * đây là dữ liệu snapshot cũ, không phải kết quả của một lượt search sống). */
+  function openViewedPoi(item: ViewedPoiItem) {
+    selectPoi({
+      poiId: item.poiId, name: item.name, category: item.category, address: item.address,
+      latitude: item.latitude, longitude: item.longitude,
+      distanceMeters: userLocation ? distanceMeters(userLocation, item) : undefined,
+    })
+  }
   const totalPages = Math.max(1, Math.ceil(data.results.length / PAGE_SIZE))
   const visibleResults = data.results.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE)
 
@@ -139,6 +178,32 @@ function App() {
               <CardDescription>{data.suggestion ?? 'Bấm “Dùng vị trí của tôi”, sau đó thử coffee bánh, sân vườn, thú cưng, làm việc hoặc rooftop.'}</CardDescription>
             </div>
           </Card>}
+          {!loading && !error && data.results.length === 0 && (searchHistory.length > 0 || viewedPois.length > 0) && (
+            <div className="mt-6 grid gap-6">
+              {searchHistory.length > 0 && <section aria-label="Tìm kiếm gần đây">
+                <p className="eyebrow mb-2 flex items-center gap-1.5"><History className="h-3.5 w-3.5" />Tìm kiếm gần đây</p>
+                <div className="flex flex-wrap gap-2">
+                  {searchHistory.map((item) => (
+                    <Button key={item.id} variant="outline" size="sm" onClick={() => searchFromHistory(item)}>{item.query}</Button>
+                  ))}
+                </div>
+              </section>}
+              {viewedPois.length > 0 && <section aria-label="Địa điểm đã xem">
+                <p className="eyebrow mb-2 flex items-center gap-1.5"><Eye className="h-3.5 w-3.5" />Địa điểm đã xem</p>
+                <div className="grid gap-2">
+                  {viewedPois.map((item) => (
+                    <button key={item.poiId} className="flex items-center justify-between gap-3 rounded-lg border bg-card/70 p-3 text-left transition hover:bg-card" onClick={() => openViewedPoi(item)}>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{item.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">{item.category} · {item.address}</p>
+                      </div>
+                      <Badge variant="secondary" className="shrink-0">{item.avgRating.toFixed(1)}★</Badge>
+                    </button>
+                  ))}
+                </div>
+              </section>}
+            </div>
+          )}
           <div className="grid">{!loading && visibleResults.map((poi, index) => (
             <button key={poi.poiId} className={`group grid w-full grid-cols-[2.25rem_1fr_auto] items-start gap-3 border-b p-4 text-left transition hover:bg-card ${selected?.poiId === poi.poiId ? 'bg-card shadow-sm' : 'bg-transparent'}`} onClick={() => selectPoi(poi)}>
               <span className="font-serif text-xs text-muted-foreground">{String(currentPage * PAGE_SIZE + index + 1).padStart(2, '0')}</span>
