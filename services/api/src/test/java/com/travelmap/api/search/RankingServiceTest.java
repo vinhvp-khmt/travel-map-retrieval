@@ -135,7 +135,7 @@ class RankingServiceTest {
     @Test
     void scoreDetailExplainsAndReproducesTheFinalScore() {
         var score = ranking.score(WeightProfile.V2,
-                1.5, 2.0, 420, 2_000, 0.5, 4.5, 200, 3.8);
+                1.5, 2.0, 420.0, 2_000, 0.5, 4.5, 200, 3.8);
 
         assertEquals("full-v2", score.rankingProfile());
         assertEquals(1.5, score.rawBm25());
