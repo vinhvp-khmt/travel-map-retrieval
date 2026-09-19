@@ -15,11 +15,17 @@ import java.util.UUID;
  * <p>Để KHÔNG phá vỡ mọi nơi đang tạo {@code SearchCriteria} với ít tham số hơn
  * (controller, các test cũ), có thêm hai constructor phụ đặt mặc định
  * {@code profile = }{@link WeightProfile#V1} và {@code diversify = true}.
+ *
+ * <p>{@code latitude}/{@code longitude} là {@code Double} (nullable) — phần 2.4: "Nếu user
+ * không truyền GPS, search vẫn phải hoạt động, không được làm request fail". Thiếu GPS thì
+ * {@code SearchService} bỏ qua bước lọc/xếp theo khoảng cách (candidate = mọi POI ACTIVE
+ * còn lại sau lọc category/priceLevel) và {@code RankingService} dùng spatial score trung
+ * lập thay vì tính theo khoảng cách thật.
  */
 public record SearchCriteria(
         String query,
-        double latitude,
-        double longitude,
+        Double latitude,
+        Double longitude,
         double radiusKm,
         OffsetDateTime visitAt,
         int page,
@@ -33,7 +39,7 @@ public record SearchCriteria(
      * Constructor tương thích ngược 10 tham số: bỏ qua {@code diversify} thì mặc định {@code true}.
      * Nhờ vậy nơi nào đã truyền {@code profile} (như controller cũ) vẫn biên dịch nguyên vẹn.
      */
-    public SearchCriteria(String query, double latitude, double longitude, double radiusKm,
+    public SearchCriteria(String query, Double latitude, Double longitude, double radiusKm,
                           OffsetDateTime visitAt, int page, int size,
                           Integer priceLevel, UUID categoryId, WeightProfile profile) {
         this(query, latitude, longitude, radiusKm, visitAt, page, size,
@@ -45,10 +51,15 @@ public record SearchCriteria(
      * thì mặc định {@link WeightProfile#V1} và {@code diversify = true}.
      * Nhờ vậy mã và test cũ (dùng 9 tham số) vẫn biên dịch nguyên vẹn.
      */
-    public SearchCriteria(String query, double latitude, double longitude, double radiusKm,
+    public SearchCriteria(String query, Double latitude, Double longitude, double radiusKm,
                           OffsetDateTime visitAt, int page, int size,
                           Integer priceLevel, UUID categoryId) {
         this(query, latitude, longitude, radiusKm, visitAt, page, size,
                 priceLevel, categoryId, WeightProfile.V1, true);
+    }
+
+    /** true nếu request có toạ độ thật để tính khoảng cách. */
+    public boolean hasLocation() {
+        return latitude != null && longitude != null;
     }
 }

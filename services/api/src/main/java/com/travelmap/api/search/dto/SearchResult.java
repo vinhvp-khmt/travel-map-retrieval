@@ -2,6 +2,7 @@ package com.travelmap.api.search.dto;
 
 import java.util.UUID;
 
+/** {@code distanceMeters} là {@code null} khi request search không có GPS (phần 2.4). */
 public record SearchResult(
         UUID poiId,
         String name,
@@ -9,7 +10,7 @@ public record SearchResult(
         String address,
         double latitude,
         double longitude,
-        double distanceMeters,
+        Double distanceMeters,
         boolean open,
         ScoreDetail scoreDetail
 ) { }

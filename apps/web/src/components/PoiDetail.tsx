@@ -82,8 +82,8 @@ export function PoiDetail({ poi, token, onClose }: { poi: PoiDetailSubject; toke
           <SheetDescription className="flex gap-2"><MapPin className="mt-0.5 h-4 w-4 shrink-0" />{poi.address}</SheetDescription>
         </SheetHeader>
         <div className="grid gap-4 px-6 pb-6">
-      {(poi.distanceMeters !== undefined || poi.open !== undefined) && <div className="flex flex-wrap gap-2">
-        {poi.distanceMeters !== undefined && <Badge variant="secondary">{Math.round(poi.distanceMeters)} m</Badge>}
+      {(poi.distanceMeters != null || poi.open !== undefined) && <div className="flex flex-wrap gap-2">
+        {poi.distanceMeters != null && <Badge variant="secondary">{Math.round(poi.distanceMeters)} m</Badge>}
         {poi.open !== undefined && <Badge variant={poi.open ? 'default' : 'destructive'}>{poi.open ? 'Đang mở cửa' : 'Đang đóng cửa'}</Badge>}
       </div>}
       {poi.scoreDetail && <ScoreBreakdown score={poi.scoreDetail} />}

@@ -13,7 +13,8 @@ export type SearchResult = {
   address: string
   latitude: number
   longitude: number
-  distanceMeters: number
+  /** null khi request search không kèm GPS (backend không tính được khoảng cách). */
+  distanceMeters: number | null
   open: boolean
   scoreDetail: ScoreDetail
 }

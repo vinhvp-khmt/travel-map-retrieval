@@ -35,8 +35,10 @@ public class SearchController {
     @GetMapping
     public SearchResponse search(Authentication auth,
                                  @RequestParam("q") String query,
-                                 @RequestParam double latitude,
-                                 @RequestParam double longitude,
+                                 // Phần 2.4: GPS là tuỳ chọn — thiếu cả hai thì search vẫn
+                                 // chạy, chỉ là bỏ tín hiệu khoảng cách (xem SearchService).
+                                 @RequestParam(required = false) Double latitude,
+                                 @RequestParam(required = false) Double longitude,
                                  @RequestParam(defaultValue = "2") double radiusKm,
                                  @RequestParam(required = false)
                                  @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime visitAt,

@@ -34,6 +34,10 @@ public class SearchHistoryService {
     @Transactional
     public void recordIfAuthenticated(Authentication auth, SearchCriteria criteria, String normalizedQuery,
                                       int resultCount) {
+        // Phần 2.4: GPS là tuỳ chọn ở tầng search, nhưng search_history.latitude/longitude
+        // vẫn NOT NULL (cần vị trí thì "search lại" từ lịch sử mới có ý nghĩa) — bỏ qua ghi
+        // lịch sử cho lượt search không có toạ độ, thay vì đổi schema hoặc NPE khi unbox.
+        if (!criteria.hasLocation()) return;
         resolveUserId(auth).ifPresent(userId -> repository.record(userId, criteria.query(), normalizedQuery,
                 criteria.latitude(), criteria.longitude(), criteria.radiusKm(), resultCount));
     }

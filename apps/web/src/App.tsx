@@ -208,7 +208,7 @@ function App() {
             <button key={poi.poiId} className={`group grid w-full grid-cols-[2.25rem_1fr_auto] items-start gap-3 border-b p-4 text-left transition hover:bg-card ${selected?.poiId === poi.poiId ? 'bg-card shadow-sm' : 'bg-transparent'}`} onClick={() => selectPoi(poi)}>
               <span className="font-serif text-xs text-muted-foreground">{String(currentPage * PAGE_SIZE + index + 1).padStart(2, '0')}</span>
               <div><p className="eyebrow">{poi.category} · Coffee place</p><h3 className="font-serif text-xl leading-tight">{poi.name}</h3><p className="mt-1 text-xs text-muted-foreground">{poi.address}</p></div>
-              <div className="grid justify-items-end gap-2"><span className="grid h-10 w-10 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{Math.round(poi.scoreDetail.finalScore * 100)}</span><span className="text-xs text-muted-foreground">{Math.round(poi.distanceMeters)} m</span></div>
+              <div className="grid justify-items-end gap-2"><span className="grid h-10 w-10 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">{Math.round(poi.scoreDetail.finalScore * 100)}</span><span className="text-xs text-muted-foreground">{poi.distanceMeters != null ? `${Math.round(poi.distanceMeters)} m` : '—'}</span></div>
             </button>
           ))}</div>
           {!loading && data.results.length > PAGE_SIZE && <nav className="mt-5 flex items-center justify-between gap-3 border-t pt-5" aria-label="Phân trang kết quả">

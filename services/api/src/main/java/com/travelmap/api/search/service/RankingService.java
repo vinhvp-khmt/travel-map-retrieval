@@ -24,6 +24,13 @@ import org.springframework.stereotype.Service;
 public class RankingService {
 
     /**
+     * Điểm không gian trung lập dùng khi request không có toạ độ user (phần 2.4: GPS là
+     * tuỳ chọn). 0.5 = "không có thông tin", không thiên vị quán gần hay xa — khác 0 (sẽ
+     * phạt oan mọi quán) và khác 1 (sẽ ưu ái oan mọi quán).
+     */
+    static final double NEUTRAL_SPATIAL_SCORE = 0.5;
+
+    /**
      * Số lượt đánh giá "ảo" của prior trong Bayesian shrinkage (tham số {@code m}).
      * Càng lớn thì càng cần nhiều lượt thật mới kéo điểm ra khỏi trung bình chung.
      */
@@ -51,7 +58,9 @@ public class RankingService {
      * @param profile          bộ trọng số + chiến lược spatial/rating
      * @param rawBm25          điểm BM25 thô của tài liệu
      * @param maxBm25          BM25 lớn nhất trong tập candidate (để chuẩn hoá)
-     * @param distanceMeters   khoảng cách tới người dùng (m)
+     * @param distanceMeters   khoảng cách tới người dùng (m); {@code null} nếu request không
+     *                         có GPS — khi đó spatial dùng {@link #NEUTRAL_SPATIAL_SCORE}
+     *                         thay vì tính theo khoảng cách thật (phần 2.4)
      * @param radiusMeters     bán kính tìm kiếm (m)
      * @param temporalFit      độ khớp giờ mở cửa trong [0,1]
      * @param averageRating    điểm sao trung bình của quán [0,5]
@@ -59,12 +68,12 @@ public class RankingService {
      * @param globalMeanRating điểm sao trung bình toàn hệ thống, làm prior (chỉ V2 dùng)
      */
     public ScoreDetail score(WeightProfile profile, double rawBm25, double maxBm25,
-                             double distanceMeters, double radiusMeters,
+                             Double distanceMeters, double radiusMeters,
                              double temporalFit, double averageRating,
                              long ratingCount, double globalMeanRating) {
         double bm25 = maxBm25 <= 0 ? 0 : clamp(rawBm25 / maxBm25);
 
-        double spatial = switch (profile.spatialMode()) {
+        double spatial = distanceMeters == null ? NEUTRAL_SPATIAL_SCORE : switch (profile.spatialMode()) {
             case LINEAR -> clamp(1.0 - distanceMeters / radiusMeters);
             case DECAY -> spatialDecay(distanceMeters, radiusMeters);
         };
