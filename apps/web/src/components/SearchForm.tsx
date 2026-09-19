@@ -47,6 +47,15 @@ const MIN_RADIUS_KM = 0.1
 const MAX_RADIUS_KM = 10
 const DEFAULT_RADIUS_KM = 2
 
+// Vị trí mẫu để test nhanh khi không đứng đúng khu vực có dữ liệu (toàn bộ POI seed nằm
+// quanh Quận 1/3, bán kính tìm kiếm tối đa 10km — GPS thật ở xa trung tâm, ví dụ Cần Giờ,
+// sẽ luôn ra 0 kết quả). Toạ độ là tâm gần đúng của mỗi quận.
+const PRESET_LOCATIONS: ReadonlyArray<{ label: string; latitude: number; longitude: number }> = [
+  { label: 'Quận 7', latitude: 10.729, longitude: 106.7019 },
+  { label: 'Quận 2', latitude: 10.7929, longitude: 106.7419 },
+  { label: 'Quận 3', latitude: 10.7822, longitude: 106.6889 },
+]
+
 const spaceOptions: Array<{ value: CoffeeSpace; label: string }> = [
   { value: 'indoor', label: 'Indoor' },
   { value: 'outdoor', label: 'Outdoor' },
@@ -270,6 +279,19 @@ export function SearchForm({ loading, onSearch, onLocationChange }: Props) {
     )
   }
 
+  function selectPresetLocation(preset: (typeof PRESET_LOCATIONS)[number]) {
+    const nextLocation = { latitude: preset.latitude, longitude: preset.longitude }
+    const nextInput = { ...input, latitude: String(preset.latitude), longitude: String(preset.longitude) }
+    setInput(nextInput)
+    setErrors({})
+    onLocationChange?.(nextLocation)
+    setLocationStatus(`Đang dùng vị trí mẫu: ${preset.label}.`)
+    if (nextInput.query.trim()) {
+      setShowSearchPrompt(false)
+      onSearch(toSearchInput(nextInput))
+    }
+  }
+
   return (
     <Card className="overflow-hidden border-primary/10 bg-card/95 shadow-xl">
       <CardContent className="p-0">
@@ -299,6 +321,14 @@ export function SearchForm({ loading, onSearch, onLocationChange }: Props) {
         {!loading && <Search className="h-4 w-4" />}
         {loading ? 'Đang tìm…' : 'Tìm quán'}
       </Button>
+      <div className="col-span-full flex flex-wrap items-center gap-2 bg-card px-4 py-2" aria-label="Vị trí mẫu để test nhanh">
+        <span className="text-xs text-muted-foreground">Hoặc test nhanh với vị trí mẫu:</span>
+        {PRESET_LOCATIONS.map((preset) => (
+          <Button key={preset.label} type="button" size="sm" variant="outline" className="h-7 rounded-full px-3 text-xs" disabled={loading} onClick={() => selectPresetLocation(preset)}>
+            {preset.label}
+          </Button>
+        ))}
+      </div>
       {activeTags.length > 0 && (
         <div className="col-span-full flex flex-wrap gap-2 bg-card px-4 py-3" aria-label="Bộ lọc đang chọn">
           {activeTags.map((tag) => (
