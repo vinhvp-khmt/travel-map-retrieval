@@ -14,7 +14,7 @@ pipeline documented in `TRAVELMAP_SYSTEM_IMPLEMENTATION_PLAN.md`.
 
 ## Local prerequisites
 
-- Java/Javac 21
+- Java/Javac 25
 - Node.js 24 and npm
 - Maven 3.9+
 - Docker with Compose

@@ -146,7 +146,12 @@ public class SearchService {
                     if (openOrder != 0) return openOrder;
                     int bm25Order = Double.compare(right.scoreDetail().bm25(), left.scoreDetail().bm25());
                     if (bm25Order != 0) return bm25Order;
-                    int distanceOrder = Double.compare(left.distanceMeters(), right.distanceMeters());
+                    // distanceMeters là null khi search không có GPS (phần 2.4) — unbox trực
+                    // tiếp qua Double.compare(double,double) sẽ NPE, nên phải so sánh null-safe.
+                    Double leftDistance = left.distanceMeters();
+                    Double rightDistance = right.distanceMeters();
+                    int distanceOrder = (leftDistance == null || rightDistance == null)
+                            ? 0 : Double.compare(leftDistance, rightDistance);
                     return distanceOrder != 0 ? distanceOrder : left.poiId().compareTo(right.poiId());
                 })
                 .toList();

@@ -18,7 +18,7 @@
     <description>TravelMap modular-monolith backend</description>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
     </properties>
 
     <dependencies>
@@ -54,6 +54,7 @@
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+            <version>42.7.12</version>
             <scope>runtime</scope>
         </dependency>
         <dependency>
