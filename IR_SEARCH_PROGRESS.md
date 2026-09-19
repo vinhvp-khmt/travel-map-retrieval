@@ -8,7 +8,7 @@
 
 - [ ] M0 — Reproducible baseline and progress tracking
 - [x] M1 — Frontend uses the backend IR search path
-- [ ] M2 — Versioned, explainable ranking and reliable index lifecycle
+- [x] M2 — Versioned, explainable ranking and reliable index lifecycle
 - [ ] M3 — Deterministic 30–50 POI evaluation corpus
 - [ ] M4 — Graded qrels and quantitative evaluator
 - [ ] M5 — Baseline comparison report and final verification
@@ -39,11 +39,11 @@
 
 ### Index lifecycle
 
-- [ ] Promote the inverted index to an application-scoped service.
-- [ ] Build the index at application startup from ACTIVE POIs.
-- [ ] Refresh the index after POI approval/update and rating changes.
-- [ ] Stop rebuilding the entire index inside each search request.
-- [ ] Test ACTIVE-only indexing and refresh behavior.
+- [x] Promote the inverted index to an application-scoped service.
+- [x] Build the index at application startup from ACTIVE POIs.
+- [x] Refresh the index after POI approval/update and rating changes.
+- [x] Stop rebuilding the entire index inside each search request.
+- [x] Test ACTIVE-only indexing and refresh behavior.
 
 ### Ranking profiles
 
@@ -51,9 +51,9 @@
 - [x] Add explicit `distance-only` baseline profile.
 - [x] Preserve the current weighted formula as `full-v1`.
 - [x] Add `full-v2` without changing `full-v1` output.
-- [ ] Allow the requested ranking profile to be selected through the search API.
-- [ ] Add a deterministic tie-break order.
-- [ ] Return the selected ranking version/profile in the response.
+- [x] Allow the requested ranking profile to be selected through the search API.
+- [x] Add a deterministic tie-break order.
+- [x] Return the selected ranking version/profile in the response.
 
 ### Rating confidence and score transparency
 
@@ -62,11 +62,11 @@
 - [x] Test 5.0/1 review against 4.5/200 reviews.
 - [x] Keep the documented v1 linear spatial decay unchanged.
 - [x] Document and test the v2 spatial formula if it differs.
-- [ ] Expose raw values, normalized component scores, weights, contributions, and final score.
-- [ ] Make `finalScore` reproducible from `scoreDetail` within rounding tolerance.
-- [x] Add ranking-profile regression tests; expanded score-detail regression remains pending.
-- [x] Verify backend and frontend test suites.
-- [ ] Commit and push M2.
+- [x] Expose raw values, normalized component scores, weights, contributions, and final score.
+- [x] Make `finalScore` reproducible from `scoreDetail` within rounding tolerance.
+- [x] Add ranking-profile and score-detail regression tests.
+- [x] Verify backend and frontend test suites — backend 64 tests; frontend 17 tests and production build pass.
+- [x] Commit and push M2.
 
 ## M3 — Deterministic POI evaluation corpus
 

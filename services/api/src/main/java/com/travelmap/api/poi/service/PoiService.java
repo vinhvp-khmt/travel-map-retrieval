@@ -15,6 +15,7 @@ import com.travelmap.api.poi.repository.PoiRepository;
 import com.travelmap.api.poi.validation.DuplicatePoiValidator;
 import com.travelmap.api.poi.validation.OpeningHoursValidator;
 import com.travelmap.api.poi.validation.ServiceAreaValidator;
+import com.travelmap.api.search.service.SearchIndexService;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,10 +32,12 @@ public class PoiService {
     private final ServiceAreaValidator serviceAreaValidator;
     private final DuplicatePoiValidator duplicatePoiValidator;
     private final OpeningHoursValidator openingHoursValidator;
+    private final SearchIndexService searchIndexService;
 
     public PoiService(PoiRepository poiRepository, CategoryRepository categoryRepository, UserRepository userRepository,
                       PoiNameNormalizer nameNormalizer, ServiceAreaValidator serviceAreaValidator,
-                      DuplicatePoiValidator duplicatePoiValidator, OpeningHoursValidator openingHoursValidator) {
+                      DuplicatePoiValidator duplicatePoiValidator, OpeningHoursValidator openingHoursValidator,
+                      SearchIndexService searchIndexService) {
         this.poiRepository = poiRepository;
         this.categoryRepository = categoryRepository;
         this.userRepository = userRepository;
@@ -42,6 +45,7 @@ public class PoiService {
         this.serviceAreaValidator = serviceAreaValidator;
         this.duplicatePoiValidator = duplicatePoiValidator;
         this.openingHoursValidator = openingHoursValidator;
+        this.searchIndexService = searchIndexService;
     }
 
     @Transactional
@@ -67,6 +71,8 @@ public class PoiService {
                 request.capacity(), request.bookingEnabled());
         poi.replaceOpeningHours(toEntities(request.openingHours()));
         poi.markPendingApproval();
+        poiRepository.flush();
+        searchIndexService.rebuild();
         return PoiResponse.from(poi);
     }
 

@@ -16,6 +16,7 @@ import com.travelmap.api.search.service.DiversityReranker;
 import com.travelmap.api.search.service.QueryNormalizer;
 import com.travelmap.api.search.service.RankingService;
 import com.travelmap.api.search.service.SearchService;
+import com.travelmap.api.search.service.SearchIndexService;
 import com.travelmap.api.search.service.SimpleVietnameseTokenizer;
 import com.travelmap.api.search.service.TemporalFitService;
 import com.travelmap.api.search.validation.SearchRequestValidator;
@@ -38,10 +39,12 @@ class SearchServiceTest {
         CategoryRepository categories = mock(CategoryRepository.class);
         SearchLogRepository logs = mock(SearchLogRepository.class);
         var tokenizer = new SimpleVietnameseTokenizer();
+        PoiEntity cafe = activeCafe();
+        SearchIndexService searchIndex = new SearchIndexService(pois, tokenizer);
+        searchIndex.rebuild(List.of(cafe));
         SearchService service = new SearchService(pois, categories, logs, tokenizer,
                 new QueryNormalizer(tokenizer), new SearchRequestValidator(), new TemporalFitService(),
-                new RankingService(), new DiversityReranker(new PoiNameNormalizer()));
-        PoiEntity cafe = activeCafe();
+                new RankingService(), new DiversityReranker(new PoiNameNormalizer()), searchIndex);
         SpatialCandidateProjection candidate = mock(SpatialCandidateProjection.class);
         when(candidate.getId()).thenReturn(cafe.getId());
         when(candidate.getDistanceMeters()).thenReturn(250.0);
@@ -66,9 +69,11 @@ class SearchServiceTest {
         CategoryRepository categories = mock(CategoryRepository.class);
         SearchLogRepository logs = mock(SearchLogRepository.class);
         var tokenizer = new SimpleVietnameseTokenizer();
+        SearchIndexService searchIndex = new SearchIndexService(pois, tokenizer);
+        searchIndex.rebuild(List.of());
         SearchService service = new SearchService(pois, categories, logs, tokenizer,
                 new QueryNormalizer(tokenizer), new SearchRequestValidator(), new TemporalFitService(),
-                new RankingService(), new DiversityReranker(new PoiNameNormalizer()));
+                new RankingService(), new DiversityReranker(new PoiNameNormalizer()), searchIndex);
         when(pois.findAllByStatus(PoiStatus.ACTIVE)).thenReturn(List.of());
         when(pois.findSpatialCandidates(10.77, 106.70, 2_000, null, null, 500)).thenReturn(List.of());
         when(pois.findAllByIdIn(List.of())).thenReturn(List.of());
@@ -89,10 +94,12 @@ class SearchServiceTest {
         CategoryRepository categories = mock(CategoryRepository.class);
         SearchLogRepository logs = mock(SearchLogRepository.class);
         var tokenizer = new SimpleVietnameseTokenizer();
+        PoiEntity cafe = activeCafe();
+        SearchIndexService searchIndex = new SearchIndexService(pois, tokenizer);
+        searchIndex.rebuild(List.of(cafe));
         SearchService service = new SearchService(pois, categories, logs, tokenizer,
                 new QueryNormalizer(tokenizer), new SearchRequestValidator(), new TemporalFitService(),
-                new RankingService(), new DiversityReranker(new PoiNameNormalizer()));
-        PoiEntity cafe = activeCafe();
+                new RankingService(), new DiversityReranker(new PoiNameNormalizer()), searchIndex);
         when(pois.findAllByStatus(PoiStatus.ACTIVE)).thenReturn(List.of(cafe));
 
         var criteria = new SearchCriteria("cà phê", null, null, 2, null, 0, 20, null, null);

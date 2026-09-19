@@ -14,6 +14,7 @@ import com.travelmap.api.poi.service.PoiService;
 import com.travelmap.api.poi.validation.DuplicatePoiValidator;
 import com.travelmap.api.poi.validation.OpeningHoursValidator;
 import com.travelmap.api.poi.validation.ServiceAreaValidator;
+import com.travelmap.api.search.service.SearchIndexService;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalTime;
@@ -43,7 +44,7 @@ class PoiServiceTest {
         when(categoryRepository.findById(categoryId)).thenReturn(Optional.of(category));
         when(poiRepository.save(any(PoiEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
         PoiService service = new PoiService(poiRepository, categoryRepository, userRepository,
-                new PoiNameNormalizer(), serviceArea, duplicate, openingHours);
+                new PoiNameNormalizer(), serviceArea, duplicate, openingHours, mock(SearchIndexService.class));
         PoiUpsertRequest request = new PoiUpsertRequest(categoryId, "Cà Phê Yên Tĩnh", "Không gian làm việc",
                 10.7769, 106.7009, "Quận 1", 2, 50, true,
                 List.of(new OpeningHourRequest(1, LocalTime.of(8, 0), LocalTime.of(22, 0), false)));

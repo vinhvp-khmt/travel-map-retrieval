@@ -8,5 +8,6 @@ public record SearchResponse(
         int size,
         int total,
         List<SearchResult> results,
-        String suggestion
+        String suggestion,
+        String rankingProfile
 ) { }

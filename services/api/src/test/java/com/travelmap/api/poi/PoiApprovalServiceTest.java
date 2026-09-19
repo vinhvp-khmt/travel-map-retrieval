@@ -12,6 +12,7 @@ import com.travelmap.api.poi.model.PoiEntity;
 import com.travelmap.api.poi.repository.PoiApprovalHistoryRepository;
 import com.travelmap.api.poi.repository.PoiRepository;
 import com.travelmap.api.poi.service.PoiApprovalService;
+import com.travelmap.api.search.service.SearchIndexService;
 import org.junit.jupiter.api.Test;
 
 import java.util.Optional;
@@ -37,13 +38,15 @@ class PoiApprovalServiceTest {
                 10.77, 106.69, "Quận 1", 2, 20, true);
         when(poiRepository.findById(poi.getId())).thenReturn(Optional.of(poi));
         when(userRepository.findByEmailIgnoreCase("admin@example.com")).thenReturn(Optional.of(admin));
-        PoiApprovalService service = new PoiApprovalService(poiRepository, historyRepository, userRepository);
+        SearchIndexService searchIndex = mock(SearchIndexService.class);
+        PoiApprovalService service = new PoiApprovalService(poiRepository, historyRepository, userRepository, searchIndex);
 
         var response = service.decide("admin@example.com", poi.getId(),
                 new PoiApprovalRequest(ApprovalDecision.APPROVED, null));
 
         assertEquals("ACTIVE", response.status());
         verify(historyRepository).save(any(PoiApprovalHistoryEntity.class));
+        verify(searchIndex).rebuild();
     }
 
     @Test
@@ -55,7 +58,8 @@ class PoiApprovalServiceTest {
                 "Quán A", "quan a", null, 10.77, 106.69, "Quận 1", 2, 20, true);
         when(poiRepository.findById(poi.getId())).thenReturn(Optional.of(poi));
         PoiApprovalService service = new PoiApprovalService(
-                poiRepository, mock(PoiApprovalHistoryRepository.class), mock(UserRepository.class));
+                poiRepository, mock(PoiApprovalHistoryRepository.class), mock(UserRepository.class),
+                mock(SearchIndexService.class));
 
         ApiException exception = assertThrows(ApiException.class, () -> service.decide(
                 "admin@example.com", poi.getId(), new PoiApprovalRequest(ApprovalDecision.REJECTED, " ")));

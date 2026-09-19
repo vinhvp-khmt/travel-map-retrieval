@@ -93,6 +93,15 @@ public enum WeightProfile {
         return ratingMode;
     }
 
+    public String apiName() {
+        return switch (this) {
+            case V1 -> "full-v1";
+            case V2 -> "full-v2";
+            case EVAL_KEYWORD_ONLY -> "bm25-only";
+            case EVAL_DISTANCE_ONLY -> "distance-only";
+        };
+    }
+
     /**
      * Phân giải profile từ tham số truy vấn (không phân biệt hoa/thường, tự trim).
      * An toàn: giá trị null hoặc không hợp lệ đều rơi về {@link #V1} thay vì báo lỗi,
@@ -111,9 +120,9 @@ public enum WeightProfile {
             return V1;
         }
         return switch (raw.trim().toLowerCase()) {
-            case "v2", "full" -> V2;
-            case "keyword" -> EVAL_KEYWORD_ONLY;
-            case "distance" -> EVAL_DISTANCE_ONLY;
+            case "v2", "full", "full-v2" -> V2;
+            case "keyword", "bm25-only", "keyword-only" -> EVAL_KEYWORD_ONLY;
+            case "distance", "distance-only" -> EVAL_DISTANCE_ONLY;
             default -> V1;
         };
     }

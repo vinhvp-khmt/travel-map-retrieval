@@ -18,6 +18,7 @@ import com.travelmap.api.search.service.DiversityReranker;
 import com.travelmap.api.search.service.QueryNormalizer;
 import com.travelmap.api.search.service.RankingService;
 import com.travelmap.api.search.service.SearchService;
+import com.travelmap.api.search.service.SearchIndexService;
 import com.travelmap.api.search.service.SimpleVietnameseTokenizer;
 import com.travelmap.api.search.service.TemporalFitService;
 import com.travelmap.api.search.validation.SearchRequestValidator;
@@ -268,9 +269,11 @@ class IrEvaluationTest {
         });
 
         var tokenizer = new SimpleVietnameseTokenizer();
+        SearchIndexService searchIndex = new SearchIndexService(pois, tokenizer);
+        searchIndex.rebuild(allPois);
         return new SearchService(pois, categories, logs, tokenizer,
                 new QueryNormalizer(tokenizer), new SearchRequestValidator(), new TemporalFitService(),
-                new RankingService(), new DiversityReranker(new PoiNameNormalizer()));
+                new RankingService(), new DiversityReranker(new PoiNameNormalizer()), searchIndex);
     }
 
     /** Khoảng cách great-circle (m) — xấp xỉ ST_Distance geography của PostGIS đủ tốt cho đánh giá. */

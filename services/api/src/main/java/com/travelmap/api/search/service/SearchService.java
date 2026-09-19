@@ -39,18 +39,21 @@ public class SearchService {
     private final TemporalFitService temporalFitService;
     private final RankingService rankingService;
     private final DiversityReranker diversityReranker;
+    private final SearchIndexService searchIndexService;
     private final BM25Scorer bm25Scorer;
 
     /**
-     * Constructor chính, được Spring dùng: {@code bm25Scorer} lấy từ context nên k1/b
-     * đọc đúng config ({@code travelmap.search.bm25.*}) thay vì hằng số mặc định.
+     * Constructor chính, được Spring dùng: {@code searchIndexService} giữ snapshot inverted
+     * index dùng chung (rebuild atomically khi POI đổi), còn {@code bm25Scorer} lấy từ context
+     * nên k1/b đọc đúng config ({@code travelmap.search.bm25.*}) thay vì hằng số mặc định.
      */
     @Autowired
     public SearchService(PoiRepository poiRepository, CategoryRepository categoryRepository,
                          SearchLogRepository searchLogRepository, VietnameseTokenizer tokenizer,
                          QueryNormalizer queryNormalizer, SearchRequestValidator validator,
                          TemporalFitService temporalFitService, RankingService rankingService,
-                         DiversityReranker diversityReranker, BM25Scorer bm25Scorer) {
+                         DiversityReranker diversityReranker, SearchIndexService searchIndexService,
+                         BM25Scorer bm25Scorer) {
         this.poiRepository = poiRepository;
         this.categoryRepository = categoryRepository;
         this.searchLogRepository = searchLogRepository;
@@ -60,11 +63,12 @@ public class SearchService {
         this.temporalFitService = temporalFitService;
         this.rankingService = rankingService;
         this.diversityReranker = diversityReranker;
+        this.searchIndexService = searchIndexService;
         this.bm25Scorer = bm25Scorer;
     }
 
     /**
-     * Constructor tương thích ngược 9 tham số (không có {@code bm25Scorer}): dùng
+     * Constructor tương thích ngược 10 tham số (không có {@code bm25Scorer}): dùng
      * {@code BM25Scorer} mặc định (k1=1.2, b=0.75). Giữ lại để {@code SearchServiceTest} và
      * {@code IrEvaluationTest} — dựng {@code SearchService} bằng tay, không qua Spring —
      * tiếp tục biên dịch và chạy nguyên vẹn.
@@ -73,9 +77,10 @@ public class SearchService {
                          SearchLogRepository searchLogRepository, VietnameseTokenizer tokenizer,
                          QueryNormalizer queryNormalizer, SearchRequestValidator validator,
                          TemporalFitService temporalFitService, RankingService rankingService,
-                         DiversityReranker diversityReranker) {
+                         DiversityReranker diversityReranker, SearchIndexService searchIndexService) {
         this(poiRepository, categoryRepository, searchLogRepository, tokenizer, queryNormalizer,
-                validator, temporalFitService, rankingService, diversityReranker, new BM25Scorer());
+                validator, temporalFitService, rankingService, diversityReranker, searchIndexService,
+                new BM25Scorer());
     }
 
     @Transactional
@@ -87,7 +92,7 @@ public class SearchService {
         String normalizedQuery = queryNormalizer.normalize(criteria.query());
         List<String> queryTerms = tokenizer.tokenize(criteria.query());
         List<PoiEntity> activePois = poiRepository.findAllByStatus(PoiStatus.ACTIVE);
-        InvertedIndex index = buildIndex(activePois);
+        InvertedIndex index = searchIndexService.snapshot();
 
         // Prior cho công thức rating shrinkage (V2): điểm sao trung bình toàn hệ thống,
         // chỉ tính trên các quán đã có ít nhất một lượt đánh giá.
@@ -136,7 +141,13 @@ public class SearchService {
                         profile, globalMeanRating))
                 .sorted((left, right) -> {
                     int scoreOrder = Double.compare(right.scoreDetail().finalScore(), left.scoreDetail().finalScore());
-                    return scoreOrder != 0 ? scoreOrder : Boolean.compare(right.open(), left.open());
+                    if (scoreOrder != 0) return scoreOrder;
+                    int openOrder = Boolean.compare(right.open(), left.open());
+                    if (openOrder != 0) return openOrder;
+                    int bm25Order = Double.compare(right.scoreDetail().bm25(), left.scoreDetail().bm25());
+                    if (bm25Order != 0) return bm25Order;
+                    int distanceOrder = Double.compare(left.distanceMeters(), right.distanceMeters());
+                    return distanceOrder != 0 ? distanceOrder : left.poiId().compareTo(right.poiId());
                 })
                 .toList();
 
@@ -156,19 +167,8 @@ public class SearchService {
             searchLogRepository.save(criteria, normalizedQuery, ranked.size());
         }
         String suggestion = ranked.isEmpty() ? "Try a broader radius or fewer filters" : null;
-        return new SearchResponse(normalizedQuery, criteria.page(), criteria.size(), ranked.size(), page, suggestion);
-    }
-
-    private InvertedIndex buildIndex(List<PoiEntity> pois) {
-        Map<UUID, List<String>> documents = new HashMap<>();
-        for (PoiEntity poi : pois) {
-            String text = poi.getName() + " " + (poi.getDescription() == null ? "" : poi.getDescription())
-                    + " " + poi.getCategory().getName() + " " + poi.getAddress();
-            documents.put(poi.getId(), tokenizer.tokenize(text));
-        }
-        InvertedIndex index = new InvertedIndex();
-        index.rebuild(documents);
-        return index;
+        return new SearchResponse(normalizedQuery, criteria.page(), criteria.size(), ranked.size(), page, suggestion,
+                profile.apiName());
     }
 
     private SearchResult toResult(PoiEntity poi, Double distance, double rawBm25, double maxBm25,
