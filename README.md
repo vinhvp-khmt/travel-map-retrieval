@@ -182,6 +182,29 @@ Signed-in users get personal history: `GET/DELETE /api/v1/search/history`
 result already in memory rather than a separate fetch). The web UI shows
 both as "Tìm kiếm gần đây" and "Địa điểm đã xem" before a search is run.
 
+### Integration tests (Testcontainers)
+
+`SearchApiIT` exercises the search/history/viewed-POI HTTP endpoints end to
+end through `MockMvc` on a real `postgis/postgis:16-3.4` container (Flyway
+V1–V9, no mocked repositories) — this is what caught the `search_log`/
+`search_history` `NOT NULL` regression that a GPS-less search used to hit.
+Like `IrDatasetEvaluationRunner`, its name deliberately avoids Surefire's
+default `*Test` pattern (it's suffixed `IT`, the Maven Failsafe convention)
+so plain `mvn test`/`mvn clean test` never needs Docker. Run it explicitly:
+
+```bash
+docker info >/dev/null 2>&1 || colima start   # any Docker daemon works
+cd services/api && ./mvnw test -Dtest=SearchApiIT
+```
+
+If Docker only listens on a non-default socket (e.g. Colima on macOS),
+export before running:
+
+```bash
+export DOCKER_HOST=unix:///Users/<you>/.colima/default/docker.sock
+export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock
+```
+
 ## Foundation commands
 
 ```bash
